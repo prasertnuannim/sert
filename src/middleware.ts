@@ -6,7 +6,8 @@ export async function middleware(req: NextRequest) {
   const session = await auth();
 
   if (
-    ["/profile", "/admin"].some((path) =>
+    ["/profile", "/admin", "/dashboard"
+    ].some((path) =>
       req.nextUrl.pathname.startsWith(path)
     ) &&
     !session
@@ -25,5 +26,5 @@ export async function middleware(req: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/profile", "/admin/:path*", "/login"],
+  matcher: ["/profile", "/admin/:path*", "/login", "/dashboard"],
 };

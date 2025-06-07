@@ -25,34 +25,25 @@ const raw = {
     });
     return { errors, values: raw };
   }
-
   const { name, email, password } = result.data;
-
-  // Check for existing email and username
   const existingEmail = await prisma.user.findUnique({ where: { email } });
   const existingName = await prisma.user.findFirst({ where: { name } });
-
   const errors: AuthFormState["errors"] = {};
   if (existingEmail) errors.email = "Email is already registered";
   if (existingName) errors.name = "Username is already taken";
   if (Object.keys(errors).length > 0) {
     return { errors, values: raw };
   }
-
   const hashedPassword = await bcrypt.hash(password, 10);
-
-  // Fetch the default role (e.g., "user") from the database
   const role = await prisma.role.findUnique({
-    where: { name: "user" }, // Change "user" to your default role name if needed
+    where: { name: "user" },
   });
-
   if (!role) {
     return {
       errors: { general: "Default role not found." },
       values: raw,
     };
   }
-
   await prisma.user.create({
     data: { 
       name, 

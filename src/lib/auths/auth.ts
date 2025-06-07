@@ -24,7 +24,7 @@ export const { auth, signIn, signOut, handlers } = NextAuth({
   adapter,
   session: {
     //strategy: "jwt", maxAge: 60 * 60 * 24 * 7, // 7 วัน (ใช้ร่วมกับ jwt)
-    strategy: "jwt", maxAge: 60 * 1, // 3 นาที = 180 วินาที
+    strategy: "jwt", maxAge: 60 * 5, // 5นาที = 180 วินาที
   },
   providers: [
     GitHub,
@@ -33,7 +33,7 @@ export const { auth, signIn, signOut, handlers } = NextAuth({
       clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
     }),
     Credentials({
-         name: "Credentials",
+      name: "Credentials",
       credentials: {
         name: { label: "Username", type: "text" },
         password: { label: "Password", type: "password" },
@@ -78,6 +78,14 @@ export const { auth, signIn, signOut, handlers } = NextAuth({
       });
 
       if (existingUser) {
+        // อัปเดตรูปภาพถ้ายังไม่มี และ user.image มีค่า
+        if (!existingUser.image && user.image) {
+          await prisma.user.update({
+            where: { id: existingUser.id },
+            data: { image: user.image },
+          });
+        }
+
         const existingLinkedAccount = await prisma.account.findFirst({
           where: {
             userId: existingUser.id,
@@ -108,6 +116,7 @@ export const { auth, signIn, signOut, handlers } = NextAuth({
           data: {
             email: user.email,
             name: user.name,
+            image: user.image,
             role: { connect: { name: "user" } },
             accounts: {
               create: {
@@ -133,9 +142,11 @@ export const { auth, signIn, signOut, handlers } = NextAuth({
     async session({ session, token }) {
       if (session.user) {
         session.user.role = token.role as string;
+        session.user.image = token.picture as string;
       }
       return session;
     },
+
     async jwt({ token, user, account }) {
       if (account?.provider === "github" || account?.provider === "google") {
         if (user?.email) {
@@ -146,17 +157,19 @@ export const { auth, signIn, signOut, handlers } = NextAuth({
           if (dbUser) {
             token.id = dbUser.id;
             token.role = dbUser.role?.name ?? dbUser.roleId ?? null;
+            token.picture = dbUser.image;
           }
         }
       }
       if (account?.provider === "credentials" && user) {
         token.id = user.id;
         token.role = user.role;
+        token.picture = user.image;
       }
       return token;
     },
     async redirect() {
-      return "/loading";
+      return "/redirect";
     },
   },
 });

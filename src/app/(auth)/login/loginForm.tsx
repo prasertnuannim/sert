@@ -1,11 +1,12 @@
 "use client";
 
 import { useActionState } from "react";
-import { loginUser, type LoginFormState } from "./action";
+import { loginUser } from "./action";
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import { SubmitButton } from "@/components/form/SubmitButton";
 import FormInput from "@/components/form/FormInput";
+import { LoginFormState } from "@/types/auth.type";
 
 export default function LoginForm() {
   const initialState: LoginFormState = {
@@ -15,7 +16,7 @@ export default function LoginForm() {
 
   const [state, formAction] = useActionState(loginUser, initialState);
     if (state.success) {
-      redirect("/loading");
+      redirect("/redirect");
     }
 
   return (
@@ -39,15 +40,12 @@ export default function LoginForm() {
         defaultValue={state.values?.password}
         error={state.errors?.password}
       />
-
       <SubmitButton text="Login" />
-
       {state.errors?.general && (
         <p className="text-red-500 text-sm text-center">
           {state.errors.general}
         </p>
       )}
-
       <div className="flex justify-between text-xs text-gray-600 dark:text-gray-400 mt-4">
         <Link href="/forgot-password" className="hover:underline">
           Forgot Password?

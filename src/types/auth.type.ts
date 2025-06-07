@@ -13,3 +13,16 @@ export type AuthFormState = {
     confirmPassword: string;
   };
 };
+
+export type LoginFormState = {
+  errors?: {
+    name?: string;
+    password?: string;
+    general?: string;
+  };
+  values?: {
+    name: string;
+    password?: string;
+  };
+  success?: boolean;
+};

@@ -1,21 +1,8 @@
 import { auth } from "@/lib/auths/auth";
-import { redirect } from "next/navigation";
+import ClientRedirect from "./client-redirect";
 
 export default async function RedirectPage() {
   const session = await auth();
-  if (!session || !session.user) {
-    redirect("/");
-    return;
-  }
-  switch (session.user.role) {
-    case "admin":
-      redirect("/admin");
-      return;
-    case "user":
-      redirect("/profile");
-      return;
-    default:
-      redirect("/");
-      return;
-  }
+  const role = session?.user?.role || "guest";
+  return <ClientRedirect role={role} />;
 }

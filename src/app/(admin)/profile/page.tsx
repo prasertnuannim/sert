@@ -12,8 +12,6 @@ export default async function ProfilePage() {
       <p>Welcome, {session.user?.name}!</p>
       <p>Email: {session.user?.email}</p>
       <p>Role: {session.user?.role}</p>
-
-      {/* 🟢 Sign out button with redirect */}
       <form
         action={async () => {
           "use server";

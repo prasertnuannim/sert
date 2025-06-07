@@ -4,19 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { signIn } from "@/lib/auths/auth";
 import bcrypt from "bcryptjs";
 import { loginSchema } from "@/lib/validators/auth";
-
-export type LoginFormState = {
-  errors?: {
-    name?: string;
-    password?: string;
-    general?: string;
-  };
-  values?: {
-    name: string;
-    password?: string;
-  };
-  success?: boolean;
-};
+import { LoginFormState } from "@/types/auth.type";
 
 export async function loginUser(_: unknown, formData: FormData): Promise<LoginFormState> {
   const raw = {
@@ -54,8 +42,6 @@ export async function loginUser(_: unknown, formData: FormData): Promise<LoginFo
       values: { name: raw.name, password: raw.password },
     };
   }
-
-  // 4️⃣ If successful, sign in
   const res = await signIn("credentials", {
     redirect: false,
     name: raw.name,
@@ -68,9 +54,4 @@ export async function loginUser(_: unknown, formData: FormData): Promise<LoginFo
     };
   }
      return { success: true };
-}
-
-
-export async function githubSignInAction() {
-  await signIn("github", { callbackUrl: "/redirect" });
 }
