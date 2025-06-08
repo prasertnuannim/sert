@@ -9,3 +9,6 @@ sudo npx tsx src/prisma/seed.ts
 sudo npx shadcn@latest add button
 
 sudo npx prisma studio
+
+
+git checkout -b dev
