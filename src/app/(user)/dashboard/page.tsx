@@ -1,4 +1,4 @@
-import LineChart from "@/components/(chart)/LineChart";
+import LineChart from "@/components/chart/LineChart";
 import { getChartData } from "./action";
 
 

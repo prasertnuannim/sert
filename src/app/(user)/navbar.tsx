@@ -1,13 +1,14 @@
-import ColorMotionInChar from "@/components/(motion)/ColorMotionInChar";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import ColorMotionInChar from "@/components/motion/ColorMotionInChar";
+import { TooltipButton } from "@/components/ui/tooltipButton";
 import { auth, signOut } from "@/lib/auths/auth";
 import React from "react";
+import { FaSignOutAlt } from "react-icons/fa";
 
 export default async function navbar() {
   const session = await auth();
   return (
     <header className="bg-gray-800 text-white w-full">
-      <div className="max-w-screen flex flex-wrap items-center justify-between px-6 py-4">
+      <div className="max-w-screen flex flex-wrap items-center justify-between px-6 py-2">
         <div className="font-bold text-md">
           <ColorMotionInChar
             className="pl-1 text-[28px]"
@@ -26,15 +27,6 @@ export default async function navbar() {
                 />
               </div>
             </div>
-            <Avatar>
-              <AvatarImage
-                src={session.user.image ?? ""}
-                alt={session.user.name ?? ""}
-              />
-              <AvatarFallback className="bg-white text-blue-500 font-bold">
-                {session.user.name?.charAt(0).toUpperCase()}
-              </AvatarFallback>
-            </Avatar>
 
             {/* Sign out button */}
             <form
@@ -43,9 +35,15 @@ export default async function navbar() {
                 await signOut({ redirectTo: "/login" });
               }}
             >
-              <button className="bg-red-500 hover:bg-red-600 text-white px-4 py-1 rounded text-sm">
-                Sign Out
-              </button>
+              {/* <button
+                className="bg-red-500 hover:bg-red-600 text-white px-2 py-1 rounded text-lg flex items-center space-x-2"
+                title="Logout"
+              >
+                <FaSignOutAlt />
+              </button> */}
+              <TooltipButton label="Logout">
+                <FaSignOutAlt />
+              </TooltipButton>
             </form>
           </div>
         ) : (
