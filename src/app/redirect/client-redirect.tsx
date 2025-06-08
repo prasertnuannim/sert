@@ -2,7 +2,7 @@
 
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
-import Loading from "../loading/page";
+import Loading from "@/components/form/Loading";
 
 export default function ClientRedirect({ role }: { role: string }) {
   const router = useRouter();
