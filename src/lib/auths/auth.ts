@@ -24,7 +24,7 @@ export const { auth, signIn, signOut, handlers } = NextAuth({
   adapter,
   session: {
     //strategy: "jwt", maxAge: 60 * 60 * 24 * 7, // 7 วัน (ใช้ร่วมกับ jwt)
-    strategy: "jwt", maxAge: 60 * 5, // 5นาที = 180 วินาที
+    strategy: "jwt", maxAge: 60 * 50, // 50นาที = 180 วินาที
   },
   providers: [
     GitHub,

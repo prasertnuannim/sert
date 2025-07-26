@@ -8,7 +8,7 @@ export default function ClientRedirect({ role }: { role: string }) {
   const router = useRouter();
   useEffect(() => {
     const timeout = setTimeout(() => {
-      if (role === "admin") router.push("/profile");
+      if (role === "admin") router.push("/account");
       else if (role === "user") router.push("/dashboard");
       else router.push("/");
     }, 1000);
