@@ -12,3 +12,6 @@ sudo npx prisma studio
 
 
 git checkout -b dev
+
+
+$2b$10$g0ZEXtKtLVCPbpGAyrgdRe4BengbpYfcRfYlJu4Vsf1d6e4M8QP1.

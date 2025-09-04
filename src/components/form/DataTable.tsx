@@ -1,0 +1,431 @@
+"use client";
+
+import React, { ReactNode, useEffect, useMemo, useState } from "react";
+import {
+  Pencil,
+  Save,
+  Trash2,
+  X,
+  ArrowUpDown,
+  ArrowUp,
+  ArrowDown,
+  ChevronsLeft,
+  ChevronLeft,
+  ChevronRight,
+  ChevronsRight,
+} from "lucide-react";
+import { ConfirmDialog } from "./ConfirmDialog";
+
+export type SortDir = "asc" | "desc";
+export type SortState<K extends string> = { key: K; dir: SortDir } | null;
+
+export type Column<T, K extends keyof T & string> = {
+  key: K;
+  header: string;
+  sortable?: boolean;
+  searchable?: boolean; // default: true
+  className?: string;
+  render?: (row: T) => ReactNode;
+  editor?: (args: { row: T; value: T[K] | undefined; set: (v: T[K]) => void }) => ReactNode;
+};
+
+export type DataTableProps<T extends { id: string }, K extends keyof T & string> = {
+  data: T[];
+  columns: Column<T, K>[];
+
+  onCreateClick?: () => void;
+  onUpdate?: (id: string, values: Partial<T>) => Promise<void> | void;
+  onHardDelete?: (id: string) => Promise<void> | void;
+
+  searchPredicate?: (row: T, term: string) => boolean;
+  initialPageSize?: number;
+  initialSort?: SortState<K>;
+  searchPlaceholder?: string;
+
+  /** Override “Actions” cell; ถ้าไม่กำหนดจะใช้ default (Edit/Save/Cancel + ConfirmDialog) */
+  renderActions?: (args: {
+    row: T;
+    isEditing: boolean;
+    startEdit: (row: T) => void;
+    cancelEdit: () => void;
+    saveEdit: (id: string) => void;
+    hardDelete?: (id: string) => void;
+  }) => ReactNode;
+
+  /** ปรับข้อความใน ConfirmDialog แบบคงที่ */
+  confirmDeleteTitle?: string;        // default: "Delete permanently?"
+  confirmDeleteDescription?: string;  // default: "This action cannot be undone."
+  confirmDeleteText?: string;         // default: "Delete"
+  confirmDeleteClassName?: string;    // default: "bg-red-600 text-white hover:bg-red-700"
+
+  /** ปรับข้อความ ConfirmDialog ต่อแถว (dynamic) */
+  getConfirmDeleteProps?: (row: T) => {
+    title?: string;
+    description?: string;
+    confirmText?: string;
+    confirmClassName?: string;
+  };
+};
+
+const toDisplayPrimitive = (raw: unknown): string => {
+  if (raw == null) return "";
+  if (typeof raw === "object") {
+    const name = (raw as Record<string, unknown>)?.name;
+    if (["string", "number", "boolean"].includes(typeof name)) return String(name);
+    try {
+      return JSON.stringify(raw);
+    } catch {
+      return String(raw);
+    }
+  }
+  return String(raw);
+};
+
+export function DataTable<T extends { id: string }, K extends keyof T & string>({
+  data,
+  columns,
+  onCreateClick,
+  onUpdate,
+  onHardDelete,
+  searchPredicate,
+  initialPageSize = 10,
+  initialSort = null,
+  searchPlaceholder = "Search…",
+  renderActions,
+  confirmDeleteTitle = "Delete permanently?",
+  confirmDeleteDescription = "This action cannot be undone.",
+  confirmDeleteText = "Delete",
+  confirmDeleteClassName = "bg-red-600 text-white hover:bg-red-700",
+  getConfirmDeleteProps,
+}: DataTableProps<T, K>) {
+  // --- States ---
+  const [search, setSearch] = useState("");
+  const [sort, setSort] = useState<SortState<K>>(initialSort);
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(initialPageSize);
+
+  // inline edit
+  const [editingRowId, setEditingRowId] = useState<string | null>(null);
+  const [draft, setDraft] = useState<Partial<T>>({});
+
+  useEffect(() => setPage(1), [search, sort, pageSize, data]);
+
+  // --- Search ---
+  const filtered = useMemo(() => {
+    if (!search.trim()) return data;
+    const term = search.toLowerCase();
+
+    const isMatch = (row: T) => {
+      if (searchPredicate) return searchPredicate(row, term);
+      for (const col of columns) {
+        if (col.searchable === false) continue;
+        const raw = row[col.key];
+        const s = toDisplayPrimitive(raw).toLowerCase();
+        if (s.includes(term)) return true;
+      }
+      return false;
+    };
+
+    return data.filter(isMatch);
+  }, [data, search, columns, searchPredicate]);
+
+  // --- Sort ---
+  const sorted = useMemo(() => {
+    if (!sort) return filtered;
+    const { key, dir } = sort;
+    const mult = dir === "asc" ? 1 : -1;
+    return [...filtered].sort((a, b) => {
+      const av = toDisplayPrimitive(a[key]);
+      const bv = toDisplayPrimitive(b[key]);
+      return av.localeCompare(bv, undefined, { sensitivity: "base" }) * mult;
+    });
+  }, [filtered, sort]);
+
+  // --- Pagination ---
+  const total = sorted.length;
+  const totalPages = Math.max(1, Math.ceil(total / pageSize));
+  const startIdx = (page - 1) * pageSize;
+  const endIdx = Math.min(startIdx + pageSize, total);
+  const pageRows = useMemo(() => sorted.slice(startIdx, endIdx), [sorted, startIdx, endIdx]);
+
+  // --- Sort toggle ---
+  const toggleSort = (key: K, enabled?: boolean) => {
+    if (!enabled) return;
+    setSort((prev) => {
+      if (!prev || prev.key !== key) return { key, dir: "asc" };
+      if (prev.dir === "asc") return { key, dir: "desc" };
+      return null;
+    });
+  };
+
+  // --- Inline edit helpers ---
+  const startEdit = (row: T) => {
+    setEditingRowId(row.id);
+    setDraft(row);
+  };
+  const cancelEdit = () => {
+    setEditingRowId(null);
+    setDraft({});
+  };
+  const saveEdit = async (id: string) => {
+    if (!onUpdate) {
+      setEditingRowId(null);
+      setDraft({});
+      return;
+    }
+    await onUpdate(id, draft as Partial<T>);
+    setEditingRowId(null);
+    setDraft({});
+  };
+  const hardDelete = async (id: string) => {
+    if (!onHardDelete) return;
+    await onHardDelete(id);
+  };
+  const setDraftField = <Key extends keyof T & string>(key: Key, value: T[Key]) => {
+    setDraft((prev) => ({ ...prev, [key]: value }));
+  };
+
+  // --- Default editor fallback ---
+  const defaultEditor = <Key extends keyof T & string>(key: Key) => {
+    const v = draft[key] as T[Key];
+
+    if (typeof v === "boolean") {
+      return (
+        <input
+          type="checkbox"
+          className="h-4 w-4"
+          checked={Boolean(v)}
+          onChange={(e) => setDraftField(key, e.target.checked as T[typeof key])}
+        />
+      );
+    }
+    if (typeof v === "number") {
+      return (
+        <input
+          type="number"
+          value={String(v)}
+          onChange={(e) =>
+            setDraftField(key, e.target.value === "" ? ("" as T[typeof key]) : (Number(e.target.value) as T[typeof key]))
+          }
+          className="border px-2 py-1 rounded w-full text-sm"
+        />
+      );
+    }
+    return (
+      <input
+        value={String(v ?? "")}
+        onChange={(e) => setDraftField(key, e.target.value as T[typeof key])}
+        className="border px-2 py-1 rounded w-full text-sm"
+      />
+    );
+  };
+
+  const SortIcon = ({ col }: { col: K }) => {
+    if (!sort || sort.key !== col) return <ArrowUpDown size={14} />;
+    return sort.dir === "asc" ? <ArrowUp size={14} /> : <ArrowDown size={14} />;
+    };
+
+  // --- Default Actions (with ConfirmDialog + customizable text) ---
+  const defaultRenderActions = ({
+    row,
+    isEditing,
+    startEdit,
+    cancelEdit,
+    saveEdit,
+    hardDelete,
+  }: {
+    row: T;
+    isEditing: boolean;
+    startEdit: (row: T) => void;
+    cancelEdit: () => void;
+    saveEdit: (id: string) => void;
+    hardDelete?: (id: string) => void;
+  }) => {
+    if (isEditing) {
+      return (
+        <div className="flex gap-2 justify-center">
+          <button onClick={() => saveEdit(row.id)} className="text-green-600" title="Save">
+            <Save size={18} />
+          </button>
+          <button onClick={cancelEdit} className="text-gray-600" title="Cancel">
+            <X size={18} />
+          </button>
+        </div>
+      );
+    }
+
+    // merge ค่า default + dynamic per row
+    const dyn = getConfirmDeleteProps?.(row) ?? {};
+    const title = dyn.title ?? confirmDeleteTitle;
+    const description = dyn.description ?? confirmDeleteDescription;
+    const confirmText = dyn.confirmText ?? confirmDeleteText;
+    const confirmClassName = dyn.confirmClassName ?? confirmDeleteClassName;
+
+    return (
+      <div className="flex gap-2 justify-center">
+        {onUpdate && (
+          <button onClick={() => startEdit(row)} className="text-blue-600" title="Edit">
+            <Pencil size={18} />
+          </button>
+        )}
+        {onHardDelete && (
+          <ConfirmDialog
+            trigger={
+              <button className="text-red-600" title="Hard delete">
+                <Trash2 size={18} />
+              </button>
+            }
+            title={title}
+            description={description}
+            confirmText={confirmText}
+            confirmClassName={confirmClassName}
+            onConfirm={() => hardDelete?.(row.id)}
+          />
+        )}
+      </div>
+    );
+  };
+
+  return (
+    <div className="rounded-md border min-h-[250px] flex flex-col">
+      {/* Header: Search + Add */}
+      <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between px-4 py-3">
+        <input
+          type="text"
+          placeholder={searchPlaceholder}
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          className="border rounded px-3 py-1 text-sm w-full md:w-64"
+          aria-label="Search table"
+        />
+        {onCreateClick && (
+          <button onClick={onCreateClick} className="px-3 py-1 bg-blue-600 text-white rounded text-sm">
+            Add
+          </button>
+        )}
+      </div>
+
+      {/* Table */}
+      <table className="w-full border-collapse">
+        <thead className="bg-gray-100">
+          <tr>
+            {columns.map((col) => (
+              <th key={String(col.key)} className="border px-4 py-2 text-left">
+                <button
+                  onClick={() => toggleSort(col.key, col.sortable)}
+                  className={`inline-flex items-center gap-1 ${col.sortable ? "hover:underline" : "cursor-default"}`}
+                  title={col.sortable ? `Sort by ${col.header}` : undefined}
+                >
+                  {col.header} {col.sortable && <SortIcon col={col.key} />}
+                </button>
+              </th>
+            ))}
+            <th className="border px-4 py-2 text-center">Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          {pageRows.length ? (
+            pageRows.map((row) => {
+              const isEditing = editingRowId === row.id;
+              return (
+                <tr key={row.id} className="hover:bg-gray-50">
+                  {columns.map((col) => {
+                    const value = (isEditing ? (draft as T)[col.key] : (row as T)[col.key]) as T[K];
+                    return (
+                      <td key={`${row.id}-${String(col.key)}`} className={`border px-4 py-2 ${col.className ?? ""}`}>
+                        {isEditing
+                          ? col.editor
+                            ? col.editor({ row, value, set: (v: T[K]) => setDraftField(col.key, v) })
+                            : defaultEditor(col.key)
+                          : col.render
+                          ? col.render(row)
+                          : toDisplayPrimitive(value)}
+                      </td>
+                    );
+                  })}
+
+                  {/* Actions */}
+                  <td className="border px-4 py-2 text-center">
+                    {(renderActions ?? defaultRenderActions)({
+                      row,
+                      isEditing,
+                      startEdit,
+                      cancelEdit,
+                      saveEdit,
+                      hardDelete,
+                    })}
+                  </td>
+                </tr>
+              );
+            })
+          ) : (
+            <tr>
+              <td colSpan={columns.length + 1} className="text-center py-4 text-gray-500">
+                No results.
+              </td>
+            </tr>
+          )}
+        </tbody>
+      </table>
+
+      {/* Footer: Pagination */}
+      <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between px-4 py-3 border-t mt-auto">
+        <div className="flex items-center gap-3">
+          <div className="text-sm text-gray-600">{total ? `${startIdx + 1}–${endIdx} of ${total}` : "0 of 0"}</div>
+          <div className="flex items-center gap-2">
+            <label className="text-sm text-gray-600">Rows</label>
+            <select
+              value={pageSize}
+              onChange={(e) => setPageSize(Number(e.target.value))}
+              className="border rounded px-2 py-1 text-sm"
+            >
+              {[5, 10, 20, 50, 100].map((n) => (
+                <option key={n} value={n}>
+                  {n}
+                </option>
+              ))}
+            </select>
+          </div>
+        </div>
+
+        <div className="flex items-center">
+          <button
+            className="p-1 rounded hover:bg-gray-100 disabled:opacity-40"
+            onClick={() => setPage(1)}
+            disabled={page <= 1}
+            title="First page"
+          >
+            <ChevronsLeft size={18} />
+          </button>
+          <button
+            className="p-1 rounded hover:bg-gray-100 disabled:opacity-40"
+            onClick={() => setPage((p) => Math.max(1, p - 1))}
+            disabled={page <= 1}
+            title="Previous"
+          >
+            <ChevronLeft size={18} />
+          </button>
+          <span className="px-2 text-sm">
+            Page <span className="font-medium">{page}</span> / {totalPages}
+          </span>
+          <button
+            className="p-1 rounded hover:bg-gray-100 disabled:opacity-40"
+            onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+            disabled={page >= totalPages}
+            title="Next"
+          >
+            <ChevronRight size={18} />
+          </button>
+          <button
+            className="p-1 rounded hover:bg-gray-100 disabled:opacity-40"
+            onClick={() => setPage(totalPages)}
+            disabled={page >= totalPages}
+            title="Last page"
+          >
+            <ChevronsRight size={18} />
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}

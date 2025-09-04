@@ -3,19 +3,18 @@ generator client {
 }
 
 datasource db {
-  provider = "sqlite"
-  url      = "file:./dev.db"
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
 }
 
 model User {
   id            String          @id @default(cuid())
-  name          String?        @unique
+  name          String?         @unique
   email         String?         @unique
   password      String?
   emailVerified DateTime?
   image         String?
   roleId        String?
-  // role          Role?           @relation(fields: [roleId], references: [id])
   role          Role?           @relation(fields: [roleId], references: [id], onDelete: Restrict) // ใช้ onDelete: Restrict เพื่อป้องกันการลบ Role ที่มีผู้ใช้เกี่ยวข้อง
   accounts      Account[]
   sessions      Session[]
@@ -25,7 +24,7 @@ model User {
   updatedAt DateTime  @updatedAt
   deletedAt DateTime?
 
-  @@index([email]) //เพิ่ม Index สำหรับฟิลด์ที่ใช้ค้นหาบ่อย
+  @@index([email])
 }
 
 model Role {

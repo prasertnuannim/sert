@@ -11,7 +11,7 @@ import { LoginFormState } from "@/types/auth.type";
 export default function LoginForm() {
   const initialState: LoginFormState = {
     errors: {},
-    values: { name: "sert", password: "123456" },
+    values: { name: "Admin", password: "admin123" },
   };
 
   const [state, formAction] = useActionState(loginUser, initialState);

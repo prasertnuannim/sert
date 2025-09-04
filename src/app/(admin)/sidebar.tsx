@@ -4,24 +4,26 @@ import { useState } from "react";
 import { ChevronLeft, ChevronRight, Settings, User } from "lucide-react";
 import clsx from "clsx";
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 
 export default function Sidebar() {
+  const pathname = usePathname();
   const [isExpanded, setIsExpanded] = useState(false);
 
   const menuItems = [
     { icon: <User size={20} />, label: "Accounts", href: "/account" },
     { icon: <Settings size={20} />, label: "Settings", href: "/setting" },
   ];
-  console.log("isExpanded>>", isExpanded);
+  
   return (
     <div
       className={clsx(
         "h-screen bg-gray-800 text-white transition-all duration-300 flex flex-col",
-        isExpanded ? "w-64" : "w-20"
+        isExpanded ? "w-54" : "w-16"
       )}
     >
       {/* Toggle Button */}
-      <div className="flex items-center justify-between p-4 overflow-visible">
+      <div className="flex items-center justify-between py-3 px-1 verflow-visible">
         <span
           className={clsx(
             "text-xl font-bold transition-opacity",
@@ -32,7 +34,7 @@ export default function Sidebar() {
         </span>
         <button
           onClick={() => setIsExpanded(!isExpanded)}
-          className=" z-10 -left-1 p-1 rounded-full text-white hover:bg-gray-200 hover:text-gray-800 transition-colors"
+          className=" z-10 p-1 rounded-full text-white hover:bg-gray-200 hover:text-gray-800 transition-colors"
         >
           {isExpanded ? <ChevronLeft /> : <ChevronRight />}
         </button>
@@ -44,7 +46,11 @@ export default function Sidebar() {
           <li key={i}>
             <Link
               href={item.href}
-              className={`group relative flex ${!isExpanded ? "items-center justify-center" : ""}  gap-4 px-3 py-2 hover:bg-gray-700 rounded transition-colors`}
+              className={clsx(
+                "group relative flex gap-4 px-3 py-2 hover:bg-gray-700 rounded transition-colors",
+                !isExpanded && "items-center justify-center",
+                pathname === item.href && "bg-gray-700 font-semibold"
+              )}
             >
               {item.icon}
               {isExpanded && <span>{item.label}</span>}

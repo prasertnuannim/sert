@@ -1,37 +1,134 @@
+"use client";
 
+import { useActionState, useEffect, useState } from "react";
+import {
+  getUsersAction,
+  updateUserAction,
+  deleteUserAction,
+} from "./actions";
+import { createUserAction as baseCreateUserAction } from "./actions";
+import { FullUser } from "@/types/account.type";
+import { CreateUserModal } from "@/components/form/CreateUserModal";
+import { DataTable, Column } from "@/components/form/DataTable";
 
-import { columns, User } from "@/components/column/UserColumns";
-import { DataTable } from "@/components/ui/data-table";
-
-
-const users: User[] = [
-  { id: "1", name: "Alice", email: "alice@example.com", role: "admin" },
-  { id: "2", name: "Bob", email: "bob@example.com", role: "user" },
-  { id: "3", name: "Charlie", email: "charlie@example.com", role: "admin" },
-  { id: "4", name: "Diana", email: "diana@example.com", role: "user" },
-  { id: "5", name: "Ethan", email: "ethan@example.com", role: "admin" },
-  { id: "6", name: "Fiona", email: "fiona@example.com", role: "user" },
-  { id: "7", name: "George", email: "george@example.com", role: "admin" },
-  { id: "8", name: "Hannah", email: "hannah@example.com", role: "user" },
-  { id: "9", name: "Isaac", email: "isaac@example.com", role: "admin" },
-  { id: "10", name: "Jane", email: "jane@example.com", role: "user" },
-  { id: "11", name: "Kevin", email: "kevin@example.com", role: "admin" },
-  { id: "12", name: "Luna", email: "luna@example.com", role: "user" },
-  { id: "13", name: "Max", email: "max@example.com", role: "admin" },
-  { id: "14", name: "Nina", email: "nina@example.com", role: "user" },
-  { id: "15", name: "Oscar", email: "oscar@example.com", role: "admin" },
-  { id: "16", name: "Paula", email: "paula@example.com", role: "user" },
-  { id: "17", name: "Quinn", email: "quinn@example.com", role: "admin" },
-  { id: "18", name: "Rachel", email: "rachel@example.com", role: "user" },
-  { id: "19", name: "Steve", email: "steve@example.com", role: "admin" },
-  { id: "20", name: "Tina", email: "tina@example.com", role: "user" },
-];
-
+const roleToText = (r: unknown) =>
+  typeof r === "string"
+    ? r
+    : (r as { name?: string })?.name ?? "";
 
 export default function UserTable() {
+  const [users, setUsers] = useState<FullUser[]>([]);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+
+  // Adapter สำหรับ useActionState (สร้างแล้ว refetch)
+  const createUserAction = async (
+    state: FullUser[],
+    formData: FormData
+  ): Promise<FullUser[]> => {
+    const result = await baseCreateUserAction(formData);
+    if (result?.success) {
+      const updated = await getUsersAction();
+      return (updated || []) as FullUser[];
+    }
+    return state;
+  };
+  const [state, formAction] = useActionState<FullUser[], FormData>(createUserAction, users);
+
+  useEffect(() => {
+    (async () => {
+      const data = await getUsersAction();
+      setUsers((data || []) as FullUser[]);
+      setIsModalOpen(false);
+    })();
+  }, []);
+
+  useEffect(() => {
+    if (state && state.length >= users.length) {
+      setUsers(state);
+      setIsModalOpen(false);
+    }
+  }, [state]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const handleUpdateUser = async (id: string, values: Partial<FullUser>) => {
+    const upd = {
+      ...values,
+      role:
+        typeof values.role === "object"
+          ? (values.role as { name: string })?.name
+          : typeof values.role === "string"
+          ? values.role
+          : "",
+    };
+    await updateUserAction(id, upd);
+    const updated = await getUsersAction();
+    setUsers((updated || []) as FullUser[]);
+  };
+
+  const handleHardDeleteUser = async (id: string) => {
+    await deleteUserAction(id);
+    const updated = await getUsersAction();
+    setUsers((updated || []) as FullUser[]);
+  };
+
+  const columns: Column<FullUser, keyof FullUser & string>[] = [
+    { key: "name", header: "Name", sortable: true },
+    { key: "email", header: "Email", sortable: true },
+    {
+      key: "role",
+      header: "Role",
+      sortable: true,
+      render: (u) => (
+        <span
+          className={`px-2 py-1 rounded text-xs ${
+            roleToText(u.role) === "admin" ? "bg-red-100 text-red-700" : "bg-gray-100 text-gray-700"
+          }`}
+        >
+          {roleToText(u.role)}
+        </span>
+      ),
+      editor: ({ value, set }) => (
+        <select
+          value={roleToText(value)}
+          onChange={(e) => set(e.target.value as string)}
+          className="border px-2 py-1 rounded w-full text-sm"
+        >
+          <option value="admin">admin</option>
+          <option value="user">user</option>
+        </select>
+      ),
+    },
+  ];
+
   return (
     <div className="container mx-auto py-10">
-      <DataTable columns={columns} data={users} />
+      <DataTable<FullUser, keyof FullUser & string>
+        data={users}
+        columns={columns}
+        initialPageSize={10}
+        initialSort={{ key: "name", dir: "asc" }}
+        searchPlaceholder="Search name / email / role…"
+        onCreateClick={() => setIsModalOpen(true)}
+        onUpdate={handleUpdateUser}
+        onHardDelete={handleHardDeleteUser}
+        // คำยืนยันแบบคงที่ทั้งตาราง
+        confirmDeleteTitle="ลบผู้ใช้นี้ถาวร?"
+        confirmDeleteDescription="การกระทำนี้ไม่สามารถย้อนกลับได้"
+        confirmDeleteText="ลบเลย"
+        confirmDeleteClassName="bg-red-600 text-white hover:bg-red-700"
+        // คำยืนยันแบบ dynamic ต่อแถว
+        getConfirmDeleteProps={(row) => ({
+          title: `ลบ “${row.name ?? row.email ?? row.id}” ถาวร ?`,
+          description: "ข้อมูลจะถูกลบออกจากระบบอย่างถาวร",
+          confirmText: "ยืนยันการลบ",
+          // confirmClassName: "bg-rose-600 text-white hover:bg-rose-700",
+        })}
+      />
+
+      <CreateUserModal
+        isOpen={isModalOpen}
+        onClose={() => setIsModalOpen(false)}
+        formAction={formAction}
+      />
     </div>
   );
 }
