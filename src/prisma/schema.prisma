@@ -8,21 +8,23 @@ datasource db {
 }
 
 model User {
-  id            String          @id @default(cuid())
-  name          String?         @unique
-  email         String?         @unique
-  password      String?
-  emailVerified DateTime?
-  image         String?
-  roleId        String?
-  role          Role?           @relation(fields: [roleId], references: [id], onDelete: Restrict) // ใช้ onDelete: Restrict เพื่อป้องกันการลบ Role ที่มีผู้ใช้เกี่ยวข้อง
-  accounts      Account[]
-  sessions      Session[]
-  Authenticator Authenticator[]
+  id             String          @id @default(cuid())
+  name           String?         @unique
+  email          String?         @unique
+  password       String?
+  emailVerified  DateTime?
+  image          String?
+  roleId         String?
+  role           Role?           @relation(fields: [roleId], references: [id], onDelete: Restrict) // ใช้ onDelete: Restrict เพื่อป้องกันการลบ Role ที่มีผู้ใช้เกี่ยวข้อง
+  accounts       Account[]
+  sessions       Session[]
+  Authenticator  Authenticator[]
+  activeSessions ActiveSession[]
 
-  createdAt DateTime  @default(now())
-  updatedAt DateTime  @updatedAt
-  deletedAt DateTime?
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+  deletedAt   DateTime?
+  loginEvents LoginEvent[]
 
   @@index([email])
 }
@@ -87,4 +89,72 @@ model Authenticator {
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@id([userId, credentialID])
+}
+
+// prisma/schema.prisma
+model ActiveSession {
+  jti        String    @id
+  userId     String
+  userAgent  String?
+  ip         String?
+  createdAt  DateTime  @default(now())
+  lastSeenAt DateTime  @updatedAt
+  revokedAt  DateTime?
+
+  // --- Geo fields (nullable) ---
+  city        String?
+  region      String?
+  country     String?
+  countryCode String? // ISO-2 เช่น TH, US
+  latitude    Float?
+  longitude   Float?
+  lastGeoAt   DateTime?
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@index([userId, lastSeenAt])
+  @@index([ip])
+}
+
+model GeoIpCache {
+  ip          String   @id
+  city        String?
+  region      String?
+  country     String?
+  countryCode String?
+  latitude    Float?
+  longitude   Float?
+  updatedAt   DateTime @updatedAt
+}
+
+enum LoginAction {
+  SIGNIN
+  SIGNOUT
+  ATTEMPT
+}
+
+model LoginEvent {
+  id        String   @id @default(cuid())
+  createdAt DateTime @default(now()) @db.Timestamptz(6)
+
+  userId String?
+  user   User?   @relation(fields: [userId], references: [id], onDelete: SetNull) // 👈 เหลืออันเดียว
+
+  email     String?
+  provider  String? // github/google/credentials/passkey
+  accountId String?
+  action    LoginAction @default(SIGNIN)
+  success   Boolean     @default(true)
+
+  ip          String?
+  userAgent   String?
+  city        String?
+  region      String?
+  country     String?
+  countryCode String?
+  latitude    Float?
+  longitude   Float?
+
+  @@index([createdAt])
+  @@index([userId, createdAt])
 }

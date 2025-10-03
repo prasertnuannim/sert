@@ -4,11 +4,11 @@ import { auth, signOut } from "@/lib/auths/auth";
 import React from "react";
 import { FaSignOutAlt } from "react-icons/fa";
 
-export default async function navbar() {
+export default async function Navbar() {
   const session = await auth();
   return (
     <header className="text-white w-full pl-6">
-      <div className="max-w-screen flex flex-wrap items-center justify-between px-6 py-2">
+      <div className="flex flex-wrap items-center justify-between px-6 py-2">
         <div className="font-bold text-md">
           <ColorMotionInChar
             className="text-[28px]"
@@ -35,12 +35,6 @@ export default async function navbar() {
                 await signOut({ redirectTo: "/login" });
               }}
             >
-              {/* <button
-                className="bg-red-500 hover:bg-red-600 text-white px-2 py-1 rounded text-lg flex items-center space-x-2"
-                title="Logout"
-              >
-                <FaSignOutAlt />
-              </button> */}
               <TooltipButton label="Logout">
                 <FaSignOutAlt />
               </TooltipButton>

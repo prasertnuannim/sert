@@ -15,3 +15,6 @@ git checkout -b dev
 
 
 $2b$10$g0ZEXtKtLVCPbpGAyrgdRe4BengbpYfcRfYlJu4Vsf1d6e4M8QP1.
+
+-- add model prisma
+npx prisma migrate dev --name add-login-event-and-geoip-cache

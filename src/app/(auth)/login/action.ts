@@ -8,7 +8,7 @@ import { LoginFormState } from "@/types/auth.type";
 
 export async function loginUser(_: unknown, formData: FormData): Promise<LoginFormState> {
   const raw = {
-    name: String(formData.get("name") ?? ""),
+    email: String(formData.get("email") ?? ""),
     password: String(formData.get("password") ?? ""),
   };
   const result = loginSchema.safeParse(raw);
@@ -18,39 +18,39 @@ export async function loginUser(_: unknown, formData: FormData): Promise<LoginFo
       const field = error.path[0] as keyof typeof errors;
       errors[field] = error.message;
     });
-    return { errors, values: { name: raw.name } };
+    return { errors, values: { email: raw.email } };
   }
   const user = await prisma.user.findFirst({
-    where: { name: raw.name },
+    where: { email: raw.email },
   });
   if (!user) {
     return {
-      errors: { general: "Invalid user name" },
-      values: { name: raw.name },
+      errors: { general: "Not found email" },
+      values: { email: raw.email },
     };
   }
   if (!user.password) {
     return {
       errors: { general: "Password is required" },
-      values: { name: raw.name, password: raw.password },
+      values: { email: raw.email, password: raw.password },
     };
   }
   const isValid = await bcrypt.compare(raw.password, user.password);
   if (!isValid) {
     return {
       errors: { general: "Invalid password" },
-      values: { name: raw.name, password: raw.password },
+      values: { email: raw.email, password: raw.password },
     };
   }
   const res = await signIn("credentials", {
     redirect: false,
-    name: raw.name,
+    email: raw.email,
     password: raw.password,
   });
   if (!res || res.error) {
     return {
       errors: { general: "Something went wrong. Please try again." },
-      values: { name: raw.name },
+      values: { email: raw.email },
     };
   }
      return { success: true };
