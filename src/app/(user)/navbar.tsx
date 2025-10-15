@@ -1,11 +1,12 @@
 import ColorMotionInChar from "@/components/motion/ColorMotionInChar";
 import { TooltipButton } from "@/components/ui/tooltipButton";
-import { auth, signOut } from "@/lib/auths/auth";
+import { signOut } from "@/server/auth/config";
+import { getServerAuthSession } from "@/server/auth/session";
 import React from "react";
 import { FaSignOutAlt } from "react-icons/fa";
 
 export default async function navbar() {
-  const session = await auth();
+  const session = await getServerAuthSession();
   return (
     <header className="bg-gray-800 text-white w-full">
       <div className="max-w-screen flex flex-wrap items-center justify-between px-6 py-2">

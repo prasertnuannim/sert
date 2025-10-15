@@ -5,11 +5,9 @@ import Passkey from "next-auth/providers/passkey";
 import Credentials from "next-auth/providers/credentials";
 import bcrypt from "bcryptjs";
 import { PrismaAdapter } from "@auth/prisma-adapter";
-import { prisma } from "@/lib/prisma";
-import { getRequestMeta } from "./reqmeta";
-import { geolocate } from "./geo";
+import { prisma } from "@/server/db/prisma";
 
-// ---- augment types (compiled จาก types/next-auth.d.ts) ----
+// ---- augment types ----
 declare module "next-auth" {
   interface Session {
     user?: {
@@ -33,7 +31,7 @@ declare module "next-auth/jwt" {
 
 const adapter = PrismaAdapter(prisma);
 
-export const { auth, signIn, signOut, handlers } = NextAuth({
+export const { handlers, auth, signIn, signOut } = NextAuth({
   secret: process.env.NEXTAUTH_SECRET,
   adapter,
   session: {
@@ -57,38 +55,19 @@ export const { auth, signIn, signOut, handlers } = NextAuth({
         password: { label: "Password", type: "password" },
       },
       authorize: async (credentials) => {
-        const { ip, userAgent } = await getRequestMeta();
-        const geo = await geolocate(ip);
-
         if (!credentials?.email || !credentials?.password) {
-          await prisma.loginEvent.create({
-            data: { action: "ATTEMPT", success: false, provider: "credentials", email: credentials?.email as string, ip, userAgent, ...geo },
-          });
-          return null; // ⬅ ห้าม throw
+          return null;
         }
 
         const user = await prisma.user.findFirst({
           where: { email: credentials.email },
           include: { role: true },
         });
-        if (!user || !user.password) {
-          await prisma.loginEvent.create({
-            data: { action: "ATTEMPT", success: false, provider: "credentials", email: credentials.email as string, ip, userAgent, ...geo },
-          });
-          return null;
-        }
+
+        if (!user || !user.password) return null;
 
         const ok = await bcrypt.compare(String(credentials.password), String(user.password));
-        if (!ok) {
-          await prisma.loginEvent.create({
-            data: { action: "ATTEMPT", success: false, provider: "credentials", userId: user.id, email: user.email, ip, userAgent, ...geo },
-          });
-          return null;
-        }
-
-        await prisma.loginEvent.create({
-          data: { action: "ATTEMPT", success: true, provider: "credentials", userId: user.id, email: user.email, ip, userAgent, ...geo },
-        });
+        if (!ok) return null;
 
         return {
           id: user.id,
@@ -101,49 +80,27 @@ export const { auth, signIn, signOut, handlers } = NextAuth({
     }),
   ],
 
-  events: {
-    async signIn({ user, account }) {
-      const { ip, userAgent } = await getRequestMeta();
-      const geo = await geolocate(ip);
-      await prisma.loginEvent.create({
-        data: {
-          action: "SIGNIN",
-          success: true,
-          provider: account?.provider ?? "unknown",
-          accountId: account?.providerAccountId ?? null,
-          userId: user?.id ?? null,
-          email: user?.email ?? null,
-          ip,
-          userAgent,
-          ...geo,
-        },
-      });
-    },
-  },
-
   callbacks: {
     async signIn({ user, account }) {
       if (!user.email || !account?.provider) return false;
-
-      // ⬇️ สำคัญ: ข้ามการลิงก์/สร้าง Account สำหรับ credentials
-      if (account.provider === "credentials") {
-        return true;
-      }
-      if (!account.providerAccountId) {
-        console.warn("[signIn] missing providerAccountId for", account.provider);
-        return true;
-      }
+      if (account.provider === "credentials") return true;
 
       const existingUser = await prisma.user.findUnique({ where: { email: user.email } });
 
       if (existingUser) {
+        // update image ถ้ายังไม่มี
         if (!existingUser.image && user.image) {
-          await prisma.user.update({ where: { id: existingUser.id }, data: { image: user.image } });
+          await prisma.user.update({
+            where: { id: existingUser.id },
+            data: { image: user.image },
+          });
         }
-        const existingLinkedAccount = await prisma.account.findFirst({
+
+        // link provider ถ้ายังไม่มี
+        const linked = await prisma.account.findFirst({
           where: { userId: existingUser.id, provider: account.provider },
         });
-        if (!existingLinkedAccount) {
+        if (!linked) {
           await prisma.account.create({
             data: {
               userId: existingUser.id,
@@ -161,6 +118,7 @@ export const { auth, signIn, signOut, handlers } = NextAuth({
           });
         }
       } else {
+        // สร้าง user ใหม่
         await prisma.user.create({
           data: {
             email: user.email!,
@@ -191,17 +149,15 @@ export const { auth, signIn, signOut, handlers } = NextAuth({
     async jwt({ token, user, account }) {
       if (user) token.email = user.email ?? token.email;
 
-      if (account?.provider === "github" || account?.provider === "google" || account?.provider === "passkey") {
-        if (user?.email) {
-          const dbUser = await prisma.user.findUnique({
-            where: { email: user.email },
-            include: { role: true },
-          });
-          if (dbUser) {
-            token.id = dbUser.id;
-            token.role = dbUser.role?.name ?? dbUser.roleId ?? null;
-            token.picture = dbUser.image ?? token.picture ?? null;
-          }
+      if (account?.provider && ["github", "google", "passkey"].includes(account.provider)) {
+        const dbUser = await prisma.user.findUnique({
+          where: { email: user?.email ?? "" },
+          include: { role: true },
+        });
+        if (dbUser) {
+          token.id = dbUser.id;
+          token.role = dbUser.role?.name ?? dbUser.roleId ?? null;
+          token.picture = dbUser.image ?? token.picture ?? null;
         }
       }
 

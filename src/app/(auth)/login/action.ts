@@ -1,10 +1,10 @@
 "use server";
 
-import { prisma } from "@/lib/prisma";
-import { signIn } from "@/lib/auths/auth";
+import { prisma } from "@/server/db/prisma";
 import bcrypt from "bcryptjs";
 import { loginSchema } from "@/lib/validators/auth";
 import { LoginFormState } from "@/types/auth.type";
+import { signIn } from "@/server/auth/config";
 
 export async function loginUser(_: unknown, formData: FormData): Promise<LoginFormState> {
   const raw = {

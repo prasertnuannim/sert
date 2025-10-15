@@ -1,6 +1,6 @@
 "use server";
 
-import { prisma } from "@/lib/prisma";
+import { prisma } from "@/server/db/prisma";
 import { revalidatePath } from "next/cache";
 import { User } from "@prisma/client";
 import bcrypt from "bcryptjs";

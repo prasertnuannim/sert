@@ -1,5 +1,6 @@
-import { signIn } from "@/lib/auths/auth";
+
 import { Button } from "@/components/ui/button";
+import { signIn } from "@/server/auth/config";
 import { FaGithub } from "react-icons/fa";
 
 export const GithubSignIn = () => {

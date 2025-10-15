@@ -1,5 +1,6 @@
-import { signIn } from "@/lib/auths/auth";
+
 import { Button } from "@/components/ui/button";
+import { signIn } from "@/server/auth/config";
 import { FcGoogle } from "react-icons/fc"; 
 
 export const GoogleSignIn = () => {
