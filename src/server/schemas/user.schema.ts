@@ -11,5 +11,4 @@ export const userResponseSchema = z.object({
   id: z.coerce.number(),
   name: z.string(),
   email: z.string(),
-  createdAt: z.string(),
 });

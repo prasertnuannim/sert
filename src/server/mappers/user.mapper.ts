@@ -1,23 +1,28 @@
 // src/server/mappers/user.mapper.ts
-import { createUserSchema, userResponseSchema } from "../schemas/user.schema";
-import type { z } from "zod";
+import { z } from "zod";
+
+export const userResponseSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  email: z.string().email(),
+  role: z.string().optional(),
+  createdAt: z.date().optional(),
+});
 
 export const userMapper = {
-  toEntity: (data: z.infer<typeof createUserSchema>) => {
-    const parsed = createUserSchema.parse(data);
-    return {
-      name: parsed.name.trim(),
-      email: parsed.email.toLowerCase(),
-      password: parsed.password,
-    };
-  },
+  toEntity: (data: any) => ({
+    name: data.name?.trim(),
+    email: data.email?.toLowerCase(),
+    password: data.password,
+  }),
 
   toResponse: (user: any) => {
     return userResponseSchema.parse({
       id: user.id,
       name: user.name,
       email: user.email,
-      createdAt: user.createdAt.toISOString(),
+      role: user.role?.name ?? "user",
+      createdAt: user.createdAt,
     });
   },
 };

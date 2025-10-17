@@ -5,7 +5,6 @@ import { revalidatePath } from "next/cache";
 import { User } from "@prisma/client";
 import bcrypt from "bcryptjs";
 
-// CREATE
 type CreateUserResponse = {
   success: boolean;
   message?: string;
@@ -57,12 +56,11 @@ export async function createUserAction(formData: FormData): Promise<CreateUserRe
     };
   }
 }
-// READ
+
 export async function getUsersAction(): Promise<User[]> {
   return prisma.user.findMany({ include: { role: true } });
 }
 
-// UPDATE
 type UpdateUserData = {
   name?: string | null;
   email?: string | null;
@@ -70,7 +68,6 @@ type UpdateUserData = {
 };
 
 export async function updateUserAction(userId: string, data: UpdateUserData) {
-  // Build a strictly-typed payload for Prisma
   const payload: {
     name?: string | null;
     email?: string | null;
@@ -99,24 +96,6 @@ export async function updateUserAction(userId: string, data: UpdateUserData) {
   return updatedUser;
 }
 
-// DELETE
-// export async function deleteUserAction(userId: string) {
-//   try {
-//     // Soft-delete: set deletedAt timestamp instead of removing the record
-//     await prisma.user.update({
-//       where: { id: userId },
-//       data: { deletedAt: new Date() },
-//     });
-
-//     revalidatePath("/users");
-//     return { success: true };
-//   } catch (error: unknown) {
-//     console.error("Delete user failed:", error);
-//     return { success: false, error: error instanceof Error ? error.message : "Failed to delete user" };
-//   }
-// }
-
-// Permanent delete (use with caution)
 export async function deleteUserAction(userId: string) {
   try {
     await prisma.user.delete({ where: { id: userId } });
