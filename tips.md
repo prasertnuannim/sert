@@ -4,7 +4,7 @@ sudo npx prisma migrate dev --name init
 
 npx prisma migrate dev --schema=src/prisma/schema.prisma --name init
 
-sudo npx tsx src/prisma/seed.ts
+sudo npx tsx src/server/db/prisma/seed.ts
 
 sudo npx shadcn@latest add button
 
