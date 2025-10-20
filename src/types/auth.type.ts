@@ -1,17 +1,18 @@
 export type AuthFormState = {
-  errors: {
+  errors?: {
     name?: string;
     email?: string;
     password?: string;
     confirmPassword?: string;
     general?: string;
   };
-  values: {
+  values?: {
     name: string;
     email: string;
     password: string;
     confirmPassword: string;
   };
+  success?: boolean;
 };
 
 export type LoginFormState = {
@@ -20,7 +21,7 @@ export type LoginFormState = {
     password?: string;
     general?: string;
   };
-  values?: {
+  values?: { 
     email: string;
     password?: string;
   };

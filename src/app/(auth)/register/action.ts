@@ -1,55 +1,81 @@
 "use server";
 
-import { redirect } from "next/navigation";
 import { registerSchema } from "@/lib/validators/auth";
 import { AuthFormState } from "@/types/auth.type";
-import { createUserService } from "@/server/services/user.service";
+import { prisma } from "@/server/db/prisma";
+import { hash } from "bcryptjs";
 import { AppError } from "@/server/security/app-error";
 
 export async function registerUser(
-  prevState: AuthFormState,
+  _: unknown,
   formData: FormData
 ): Promise<AuthFormState> {
-  try {
-    const raw = {
-      name: String(formData.get("name") ?? ""),
-      email: String(formData.get("email") ?? ""),
-      password: String(formData.get("password") ?? ""),
-      confirmPassword: String(formData.get("confirmPassword") ?? ""),
-    };
+  const raw = {
+    name: String(formData.get("name") ?? ""),
+    email: String(formData.get("email") ?? ""),
+    password: String(formData.get("password") ?? ""),
+    confirmPassword: String(formData.get("confirmPassword") ?? ""),
+  };
 
+  try {
+    // ✅ Validate ด้วย Zod
     const result = registerSchema.safeParse(raw);
     if (!result.success) {
       const errors: AuthFormState["errors"] = {};
       result.error.errors.forEach((err) => {
-        const field = err.path[0] as keyof AuthFormState["errors"];
+        const field = err.path[0] as keyof typeof errors;
         errors[field] = err.message;
       });
-      return { errors, values: raw };
-    }
 
-    if (raw.password !== raw.confirmPassword) {
       return {
-        errors: { confirmPassword: "รหัสผ่านไม่ตรงกัน" },
-        values: raw,
+        errors,
+        values: {
+          name: raw.name,
+          email: raw.email,
+          password: "",
+          confirmPassword: "",
+        },
       };
     }
 
-    await createUserService(raw);
-    redirect("/login");
-  } catch (err: any) {
-    console.error("[REGISTER_ERROR]", err);
+    // ✅ ตรวจ email ซ้ำ
+    const existing = await prisma.user.findUnique({
+      where: { email: raw.email },
+    });
+    if (existing) throw new AppError("EMAIL_EXISTS", "Email already registered.");
 
+    // ✅ สร้าง user
+    await prisma.user.create({
+      data: {
+        name: raw.name,
+        email: raw.email,
+        password: await hash(raw.password, 10),
+        role: { connect: { name: "user" } },
+      },
+    });
+
+    return { success: true };
+  } catch (err) {
     if (err instanceof AppError) {
       return {
         errors: { general: err.message },
-        values: {},
+        values: {
+          name: raw.name,
+          email: raw.email,
+          password: "",
+          confirmPassword: "",
+        },
       };
     }
 
     return {
-      errors: { general: "สมัครสมาชิกไม่สำเร็จ กรุณาลองใหม่อีกครั้ง" },
-      values: {},
+      errors: { general: "Unexpected error occurred. Please try again." },
+      values: {
+        name: raw.name,
+        email: raw.email,
+        password: "",
+        confirmPassword: "",
+      },
     };
   }
 }
