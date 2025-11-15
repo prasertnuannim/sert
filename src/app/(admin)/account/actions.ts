@@ -1,9 +1,11 @@
 "use server";
 
-import { prisma } from "@/server/db/prisma";
 import { revalidatePath } from "next/cache";
 import { User } from "@prisma/client";
 import bcrypt from "bcryptjs";
+import { prisma } from "@/server/db/prisma";
+import { withAuthAction } from "@/server/security/SafeAction";
+import { AccessRole } from "@/lib/auth/access-role";
 
 type CreateUserResponse = {
   success: boolean;
@@ -11,7 +13,13 @@ type CreateUserResponse = {
   error?: string;
 };
 
-export async function createUserAction(formData: FormData): Promise<CreateUserResponse> {
+const ADMIN_ONLY = { roles: [AccessRole.Admin] };
+
+async function handleCreateUserAction(
+  _sessionUserId: string | null,
+  formData: FormData,
+): Promise<CreateUserResponse> {
+  void _sessionUserId;
   try {
     const name = formData.get("name") as string;
     const email = formData.get("email") as string;
@@ -57,7 +65,8 @@ export async function createUserAction(formData: FormData): Promise<CreateUserRe
   }
 }
 
-export async function getUsersAction(): Promise<User[]> {
+async function handleGetUsersAction(_sessionUserId: string | null): Promise<User[]> {
+  void _sessionUserId;
   return prisma.user.findMany({ include: { role: true } });
 }
 
@@ -67,7 +76,12 @@ type UpdateUserData = {
   role?: string | null; // role name (e.g. 'admin'|'user') -- will be mapped to relation
 };
 
-export async function updateUserAction(userId: string, data: UpdateUserData) {
+async function handleUpdateUserAction(
+  _sessionUserId: string | null,
+  targetUserId: string,
+  data: UpdateUserData,
+) {
+  void _sessionUserId;
   const payload: {
     name?: string | null;
     email?: string | null;
@@ -82,27 +96,35 @@ export async function updateUserAction(userId: string, data: UpdateUserData) {
   }
 
   if (data.role && typeof data.role === "string") {
-    const roleRecord = await prisma.role.findFirst({ where: { name: { equals: data.role, mode: "insensitive" } } });
+    const roleRecord = await prisma.role.findFirst({
+      where: { name: { equals: data.role, mode: "insensitive" } },
+    });
     if (roleRecord) {
       payload.role = { connect: { id: roleRecord.id } };
     }
   }
 
   const updatedUser = await prisma.user.update({
-    where: { id: userId },
+    where: { id: targetUserId },
     data: payload,
   });
-  revalidatePath("/users");
+  revalidatePath("/account");
   return updatedUser;
 }
 
-export async function deleteUserAction(userId: string) {
+async function handleDeleteUserAction(_sessionUserId: string | null, targetUserId: string) {
+  void _sessionUserId;
   try {
-    await prisma.user.delete({ where: { id: userId } });
-    revalidatePath("/users");
+    await prisma.user.delete({ where: { id: targetUserId } });
+    revalidatePath("/account");
     return { success: true };
   } catch (error: unknown) {
     console.error("Hard delete user failed:", error);
     return { success: false, error: error instanceof Error ? error.message : "Failed to hard delete user" };
   }
 }
+
+export const createUserAction = withAuthAction(handleCreateUserAction, ADMIN_ONLY);
+export const getUsersAction = withAuthAction(handleGetUsersAction, ADMIN_ONLY);
+export const updateUserAction = withAuthAction(handleUpdateUserAction, ADMIN_ONLY);
+export const deleteUserAction = withAuthAction(handleDeleteUserAction, ADMIN_ONLY);

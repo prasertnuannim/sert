@@ -3,30 +3,19 @@ import GitHub from "next-auth/providers/github";
 import Google from "next-auth/providers/google";
 import Passkey from "next-auth/providers/passkey";
 import Credentials from "next-auth/providers/credentials";
-import { NextResponse } from "next/server";
 import bcrypt from "bcryptjs";
 import { PrismaAdapter } from "@auth/prisma-adapter";
 import { prisma } from "@/server/db/prisma";
 import type { JWT } from "next-auth/jwt";
 import type {
   AuthCallbacks,
-  AuthAuthorizedCallbackParams,
   AuthJwtCallbackParams,
   AuthSessionCallbackParams,
   AuthSignInCallbackParams,
   LoginCredentialsInput,
 } from "@/types/auth.type";
-import {
-  normalizeAccessRole,
-  resolveRoleRedirectPath,
-} from "@/lib/auth/access-role";
 import { AuthUserService } from "@/server/services/auth/AuthUserService";
 import { resolveSessionMaxAgeSeconds } from "@/server/services/auth/SessionService";
-import { resolveAuthRedirect } from "@/server/services/auth/RedirectService";
-import {
-  ACCESS_RULES,
-  matchProtectedPath,
-} from "@/server/services/auth/access-control";
 
 declare module "next-auth" {
   interface Session {
@@ -143,8 +132,7 @@ export class AuthService {
       signIn: this.handleSignIn.bind(this),
       jwt: this.handleJWT.bind(this),
       session: this.handleSession.bind(this),
-      authorized: this.handleAuthorized.bind(this),
-      redirect: async () => "/redirect",
+      redirect: async () => "/",
     };
   }
 
@@ -191,30 +179,6 @@ export class AuthService {
       session.user.image = (token.picture as string) ?? session.user.image;
     }
     return session;
-  }
-
-  private handleAuthorized({ auth, request }: AuthAuthorizedCallbackParams) {
-    const pathname = request.nextUrl.pathname;
-    const matched = matchProtectedPath(pathname);
-    if (!matched) return true;
-
-    if (!auth?.user) {
-      const loginUrl = new URL("/login", request.url);
-      loginUrl.searchParams.set("next", pathname + request.nextUrl.search);
-      return NextResponse.redirect(loginUrl);
-    }
-
-    const allowedRoles = ACCESS_RULES[matched];
-    const role = normalizeAccessRole(auth.user.role);
-    if (!role || !allowedRoles.includes(role)) {
-      const redirectUrl = resolveAuthRedirect({
-        url: resolveRoleRedirectPath(auth.user.role),
-        baseUrl: request.nextUrl.origin,
-      });
-      return NextResponse.redirect(new URL(redirectUrl, request.nextUrl.origin));
-    }
-
-    return true;
   }
 }
 

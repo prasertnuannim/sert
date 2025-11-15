@@ -1,9 +1,8 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { getToken } from "next-auth/jwt";
-import { AccessRole, normalizeAccessRole, resolveRoleRedirectPath } from "@/lib/auth/roles";
-import { resolveAuthRedirect } from "./server/auth/redirect-helpers";
-import { getServerAuthSession } from "./server/auth/session";
+import { AccessRole, normalizeAccessRole, resolveRoleRedirectPath } from "@/lib/auth/access-role";
+import { resolveAuthRedirect } from "@/server/services/auth/RedirectService";
 
 const ACCESS_RULES: Record<string, AccessRole[]> = {
   "/admin": [AccessRole.Admin],
@@ -17,7 +16,6 @@ function matchProtected(pathname: string) {
     (p) => pathname === p || pathname.startsWith(p + "/")
   );
 }
-
 export async function middleware(req: NextRequest) {
   const { nextUrl } = req;
   const pathname = nextUrl.pathname;
@@ -29,8 +27,8 @@ export async function middleware(req: NextRequest) {
   const token = await getToken({ req, secret });
 
   if (!matched) {
-    if (pathname === "/") {
-      const redirectPath = resolveRoleRedirectPath(token?.role);
+    if (pathname === "/" && token?.role) {
+      const redirectPath = resolveRoleRedirectPath(token.role);
       if (redirectPath !== "/") {
         const target = resolveAuthRedirect({
           url: redirectPath,
@@ -41,14 +39,13 @@ export async function middleware(req: NextRequest) {
     }
     return NextResponse.next();
   }
-  const session = await getServerAuthSession();
-  if (!session) {
+  if (!token) {
     const loginUrl = new URL("/login", req.url);
     loginUrl.searchParams.set("next", pathname + nextUrl.search);
     return NextResponse.redirect(loginUrl);
   }
   const allowed = ACCESS_RULES[matched];
-  const sessionRole = normalizeAccessRole(session.user?.role);
+  const sessionRole = normalizeAccessRole(token.role);
   if (!sessionRole || !allowed.includes(sessionRole)) {
     const fallback = resolveAuthRedirect({
       url: resolveRoleRedirectPath(token?.role),

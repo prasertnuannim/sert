@@ -4,7 +4,7 @@ import { registerSchema } from "@/lib/validators/auth";
 import { AuthFormState } from "@/types/auth.type";
 import { prisma } from "@/server/db/prisma";
 import { hash } from "bcryptjs";
-import { AppError } from "@/server/security/app-error";
+import { AppError } from "@/server/security/AppError";
 
 export async function registerUser(
   _: unknown,

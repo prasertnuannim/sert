@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { ChevronLeft, ChevronRight, User, Map } from "lucide-react";
+import { ChevronLeft, ChevronRight, Settings, User } from "lucide-react";
 import clsx from "clsx";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -12,7 +12,7 @@ export default function Sidebar() {
 
   const menuItems = [
     { icon: <User size={20} />, label: "Accounts", href: "/account" },
-    { icon: <Map size={20} />, label: "Login Map", href: "/login-map" },
+    { icon: <Settings size={20} />, label: "Auth-Settings", href: "/auth-settings" },
   ];
   
   return (

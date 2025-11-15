@@ -2,9 +2,9 @@
 
 import { loginSchema } from "@/lib/validators/auth";
 import { LoginFormState } from "@/types/auth.type";
-import { signIn } from "@/server/auth/config";
-import { authService } from "@/server/services/auth.service";
-import { AppError } from "@/server/security/app-error";
+import { AppError } from "@/server/security/AppError";
+import { signIn } from "@/server/services/auth/AuthService";
+import { verifyService } from "@/server/services/auth/VerifyService";
 
 export async function loginUser(
   _: unknown,
@@ -25,7 +25,7 @@ export async function loginUser(
       return { errors, values: { email: raw.email } };
     }
 
-    await authService.validateUser(raw.email, raw.password);
+    await verifyService.validateUser(raw.email, raw.password);
 
     const res = await signIn("credentials", {
       redirect: false,

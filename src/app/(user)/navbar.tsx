@@ -1,7 +1,7 @@
 import ColorMotionInChar from "@/components/motion/ColorMotionInChar";
 import { TooltipButton } from "@/components/ui/tooltipButton";
-import { signOut } from "@/server/auth/config";
-import { getServerAuthSession } from "@/server/auth/session";
+import { signOut } from "@/server/services/auth/AuthService";
+import { getServerAuthSession } from "@/server/services/auth/SessionService";
 import React from "react";
 import { FaSignOutAlt } from "react-icons/fa";
 
@@ -36,12 +36,6 @@ export default async function navbar() {
                 await signOut({ redirectTo: "/login" });
               }}
             >
-              {/* <button
-                className="bg-red-500 hover:bg-red-600 text-white px-2 py-1 rounded text-lg flex items-center space-x-2"
-                title="Logout"
-              >
-                <FaSignOutAlt />
-              </button> */}
               <TooltipButton label="Logout">
                 <FaSignOutAlt />
               </TooltipButton>

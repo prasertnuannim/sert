@@ -17,7 +17,7 @@ export default function LoginForm() {
 
   const [state, formAction, isPending] = useActionState(loginUser, initialState);
   if (state.success) {
-    redirect("/redirect");
+    redirect("/");
   }
 
   return (
