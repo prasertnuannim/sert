@@ -3,37 +3,20 @@
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Loading from "@/components/form/Loading";
-
-type Role = "admin" | "user" | "doctor" | "nurse" | "guest" | string;
+import { AccessRole, resolveRoleRedirectPath } from "@/lib/auth/roles";
 
 export default function ClientRedirect({
   role,
   delay = 800,
 }: {
-  role: Role;
+  role: AccessRole | string | null | undefined;
   delay?: number;
 }) {
   const router = useRouter();
 
   useEffect(() => {
     const timer = setTimeout(() => {
-      switch (role?.toLowerCase()) {
-        case "admin":
-          router.push("/account");
-          break;
-        case "user":
-          router.push("/dashboard");
-          break;
-        case "doctor":
-          router.push("/doctor");
-          break;
-        case "nurse":
-          router.push("/schedule");
-          break;
-        default:
-          router.push("/");
-          break;
-      }
+      router.push(resolveRoleRedirectPath(role));
     }, delay);
 
     return () => clearTimeout(timer);

@@ -6,6 +6,7 @@ import Credentials from "next-auth/providers/credentials";
 import bcrypt from "bcryptjs";
 import { PrismaAdapter } from "@auth/prisma-adapter";
 import { prisma } from "@/server/db/prisma";
+import { resolveAuthRedirect } from "./redirect-helpers";
 
 // ---- augment types ----
 declare module "next-auth" {
@@ -28,6 +29,14 @@ declare module "next-auth/jwt" {
     email?: string | null;
   }
 }
+
+export {
+  AccessRole,
+  ROLE_REDIRECT_MAP,
+  resolveRoleRedirectPath,
+  normalizeAccessRole,
+} from "@/lib/auth/roles";
+export { AUTH_REDIRECT_PATH, resolveAuthRedirect } from "./redirect-helpers";
 
 const adapter = PrismaAdapter(prisma);
 
@@ -179,8 +188,8 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       return session;
     },
 
-    async redirect() {
-      return "/redirect";
+    async redirect({ url, baseUrl }) {
+      return resolveAuthRedirect({ url, baseUrl });
     },
   },
 });
