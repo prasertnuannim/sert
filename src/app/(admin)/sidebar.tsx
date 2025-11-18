@@ -12,9 +12,13 @@ export default function Sidebar() {
 
   const menuItems = [
     { icon: <User size={20} />, label: "Accounts", href: "/account" },
-    { icon: <Settings size={20} />, label: "Auth-Settings", href: "/auth-settings" },
+    {
+      icon: <Settings size={20} />,
+      label: "Auth-Settings",
+      href: "/auth-settings",
+    },
   ];
-  
+
   return (
     <div
       className={clsx(
@@ -33,10 +37,19 @@ export default function Sidebar() {
           MyApp
         </span>
         <button
-          onClick={() => setIsExpanded(!isExpanded)}
-          className=" z-10 p-1 rounded-full text-white hover:bg-gray-200 hover:text-gray-800 transition-colors"
+          onClick={() => setIsExpanded((prev) => !prev)}
+          className={`
+    z-10 p-1 rounded-full
+    transition-all duration-200 ease-out
+    shadow-sm hover:shadow
+    ${
+      isExpanded
+        ? "bg-white text-gray-800 hover:bg-gray-400 hover:text-white"
+        : "bg-white text-gray-800 hover:bg-gray-400 hover:text-white"
+    }
+  `}
         >
-          {isExpanded ? <ChevronLeft /> : <ChevronRight />}
+          {isExpanded ? <ChevronLeft size={18} /> : <ChevronRight size={18} />}
         </button>
       </div>
 

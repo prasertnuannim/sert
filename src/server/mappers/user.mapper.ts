@@ -1,44 +1,33 @@
-// src/server/mappers/user.mapper.ts
-import { z } from "zod";
-import type { Prisma, User, Role } from "@prisma/client";
-import { BaseMapper } from "./base.mapper";
+import { UserDTO } from "@/server/dto/user.dto";
+import type { FullUser } from "@/types/account.type";
+import type { User, Role } from "@prisma/client";
 
-// ✅ สร้าง schema สำหรับ response
-export const userResponseSchema = z.object({
-  id: z.string(),
-  name: z.string(),
-  email: z.string().email(),
-  role: z.string().nullable(),
-  image: z.string().nullable(),
-  createdAt: z.date(),
-});
-
-export type UserResponse = z.infer<typeof userResponseSchema>;
-
-/**
- * UserMapper (Prisma-aware)
- * - ใช้ Prisma Model โดยตรง (User)
- */
-export class UserMapper extends BaseMapper<User & { role?: Role | null }, UserResponse> {
-  protected schema = userResponseSchema;
-
-  public toEntity(data: Partial<User>): Partial<User> {
-    return {
-      name: data.name?.trim(),
-      email: data.email?.toLowerCase(),
-      password: data.password,
-      roleId: data.roleId,
-    };
+export class UserMapper {
+  toResponse(user: User & { role?: Role | null }): FullUser {
+    return UserDTO.Response.parse({
+      id: user.id,
+      name: user.name,
+      email: user.email,
+      password: null,
+      emailVerified: user.emailVerified,
+      image: user.image,
+      roleId: user.roleId,
+      role: user.role
+        ? {
+            id: user.role.id,
+            name: user.role.name,
+          }
+        : null,
+      createdAt: user.createdAt,
+      updatedAt: user.updatedAt,
+      deletedAt: user.deletedAt,
+    });
   }
 
-  protected mapToResponse(entity: User & { role?: Role | null }): UserResponse {
-    return {
-      id: entity.id,
-      name: entity.name,
-      email: entity.email,
-      role: entity.role?.name ?? entity.roleId ?? null,
-      image: entity.image ?? null,
-      createdAt: entity.createdAt,
-    };
+  toResponseList(users: (User & { role?: Role | null })[]): FullUser[] {
+    return users.map((u) => this.toResponse(u));
   }
 }
+
+// Singleton
+export const userMapper = new UserMapper();

@@ -23,10 +23,19 @@ export type Column<T, K extends keyof T & string> = {
   key: K;
   header: string;
   sortable?: boolean;
-  searchable?: boolean; // default: true
+  searchable?: boolean;
   className?: string;
   render?: (row: T) => ReactNode;
   editor?: (args: { row: T; value: T[K] | undefined; set: (v: T[K]) => void }) => ReactNode;
+};
+
+export type RenderActionsArgs<T extends { id: string }> = {
+  row: T;
+  isEditing: boolean;
+  startEdit: (row: T) => void;
+  cancelEdit: () => void;
+  saveEdit: (id: string) => void;
+  hardDelete?: (id: string) => void;
 };
 
 export type DataTableProps<T extends { id: string }, K extends keyof T & string> = {
@@ -41,24 +50,18 @@ export type DataTableProps<T extends { id: string }, K extends keyof T & string>
   initialPageSize?: number;
   initialSort?: SortState<K>;
   searchPlaceholder?: string;
+  
+  /** 👇 Skeleton Loading options */
+  isLoading?: boolean;
+  loadingRows?: number;
 
-  /** Override “Actions” cell; ถ้าไม่กำหนดจะใช้ default (Edit/Save/Cancel + ConfirmDialog) */
-  renderActions?: (args: {
-    row: T;
-    isEditing: boolean;
-    startEdit: (row: T) => void;
-    cancelEdit: () => void;
-    saveEdit: (id: string) => void;
-    hardDelete?: (id: string) => void;
-  }) => ReactNode;
+  renderActions?: (args: RenderActionsArgs<T>) => ReactNode;
 
-  /** ปรับข้อความใน ConfirmDialog แบบคงที่ */
-  confirmDeleteTitle?: string;        // default: "Delete permanently?"
-  confirmDeleteDescription?: string;  // default: "This action cannot be undone."
-  confirmDeleteText?: string;         // default: "Delete"
-  confirmDeleteClassName?: string;    // default: "bg-red-600 text-white hover:bg-red-700"
+  confirmDeleteTitle?: string;
+  confirmDeleteDescription?: string;
+  confirmDeleteText?: string;
+  confirmDeleteClassName?: string;
 
-  /** ปรับข้อความ ConfirmDialog ต่อแถว (dynamic) */
   getConfirmDeleteProps?: (row: T) => {
     title?: string;
     description?: string;
@@ -91,6 +94,11 @@ export function DataTable<T extends { id: string }, K extends keyof T & string>(
   initialPageSize = 10,
   initialSort = null,
   searchPlaceholder = "Search…",
+
+  /** Skeleton */
+  isLoading = false,
+  loadingRows = 8,
+
   renderActions,
   confirmDeleteTitle = "Delete permanently?",
   confirmDeleteDescription = "This action cannot be undone.",
@@ -98,13 +106,13 @@ export function DataTable<T extends { id: string }, K extends keyof T & string>(
   confirmDeleteClassName = "bg-red-600 text-white hover:bg-red-700",
   getConfirmDeleteProps,
 }: DataTableProps<T, K>) {
-  // --- States ---
+
+  // --- State ---
   const [search, setSearch] = useState("");
   const [sort, setSort] = useState<SortState<K>>(initialSort);
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(initialPageSize);
 
-  // inline edit
   const [editingRowId, setEditingRowId] = useState<string | null>(null);
   const [draft, setDraft] = useState<Partial<T>>({});
 
@@ -146,7 +154,12 @@ export function DataTable<T extends { id: string }, K extends keyof T & string>(
   const totalPages = Math.max(1, Math.ceil(total / pageSize));
   const startIdx = (page - 1) * pageSize;
   const endIdx = Math.min(startIdx + pageSize, total);
-  const pageRows = useMemo(() => sorted.slice(startIdx, endIdx), [sorted, startIdx, endIdx]);
+
+  const pageRows = useMemo(() => sorted.slice(startIdx, endIdx), [
+    sorted,
+    startIdx,
+    endIdx,
+  ]);
 
   // --- Sort toggle ---
   const toggleSort = (key: K, enabled?: boolean) => {
@@ -158,7 +171,7 @@ export function DataTable<T extends { id: string }, K extends keyof T & string>(
     });
   };
 
-  // --- Inline edit helpers ---
+  // --- Inline Edit ---
   const startEdit = (row: T) => {
     setEditingRowId(row.id);
     setDraft(row);
@@ -168,34 +181,29 @@ export function DataTable<T extends { id: string }, K extends keyof T & string>(
     setDraft({});
   };
   const saveEdit = async (id: string) => {
-    if (!onUpdate) {
-      setEditingRowId(null);
-      setDraft({});
-      return;
+    if (onUpdate) {
+      await onUpdate(id, draft as Partial<T>);
     }
-    await onUpdate(id, draft as Partial<T>);
-    setEditingRowId(null);
-    setDraft({});
+    cancelEdit();
   };
   const hardDelete = async (id: string) => {
-    if (!onHardDelete) return;
-    await onHardDelete(id);
+    if (onHardDelete) await onHardDelete(id);
   };
-  const setDraftField = <Key extends keyof T & string>(key: Key, value: T[Key]) => {
-    setDraft((prev) => ({ ...prev, [key]: value }));
-  };
+  const setDraftField = <Key extends keyof T & string>(
+    key: Key,
+    value: T[Key]
+  ) => setDraft((p) => ({ ...p, [key]: value }));
 
-  // --- Default editor fallback ---
   const defaultEditor = <Key extends keyof T & string>(key: Key) => {
     const v = draft[key] as T[Key];
-
     if (typeof v === "boolean") {
       return (
         <input
           type="checkbox"
-          className="h-4 w-4"
           checked={Boolean(v)}
-          onChange={(e) => setDraftField(key, e.target.checked as T[typeof key])}
+          onChange={(e) =>
+            setDraftField(key, e.target.checked as T[typeof key])
+          }
         />
       );
     }
@@ -205,7 +213,12 @@ export function DataTable<T extends { id: string }, K extends keyof T & string>(
           type="number"
           value={String(v)}
           onChange={(e) =>
-            setDraftField(key, e.target.value === "" ? ("" as T[typeof key]) : (Number(e.target.value) as T[typeof key]))
+            setDraftField(
+              key,
+              e.target.value === ""
+                ? ("" as T[typeof key])
+                : (Number(e.target.value) as T[typeof key])
+            )
           }
           className="border px-2 py-1 rounded w-full text-sm"
         />
@@ -214,7 +227,9 @@ export function DataTable<T extends { id: string }, K extends keyof T & string>(
     return (
       <input
         value={String(v ?? "")}
-        onChange={(e) => setDraftField(key, e.target.value as T[typeof key])}
+        onChange={(e) =>
+          setDraftField(key, e.target.value as T[typeof key])
+        }
         className="border px-2 py-1 rounded w-full text-sm"
       />
     );
@@ -223,9 +238,9 @@ export function DataTable<T extends { id: string }, K extends keyof T & string>(
   const SortIcon = ({ col }: { col: K }) => {
     if (!sort || sort.key !== col) return <ArrowUpDown size={14} />;
     return sort.dir === "asc" ? <ArrowUp size={14} /> : <ArrowDown size={14} />;
-    };
+  };
 
-  // --- Default Actions (with ConfirmDialog + customizable text) ---
+  // --- Default Actions ---
   const defaultRenderActions = ({
     row,
     isEditing,
@@ -233,45 +248,39 @@ export function DataTable<T extends { id: string }, K extends keyof T & string>(
     cancelEdit,
     saveEdit,
     hardDelete,
-  }: {
-    row: T;
-    isEditing: boolean;
-    startEdit: (row: T) => void;
-    cancelEdit: () => void;
-    saveEdit: (id: string) => void;
-    hardDelete?: (id: string) => void;
-  }) => {
+  }: RenderActionsArgs<T>) => {
     if (isEditing) {
       return (
         <div className="flex gap-2 justify-center">
-          <button onClick={() => saveEdit(row.id)} className="text-green-600" title="Save">
+          <button onClick={() => saveEdit(row.id)} className="text-green-600">
             <Save size={18} />
           </button>
-          <button onClick={cancelEdit} className="text-gray-600" title="Cancel">
+          <button onClick={cancelEdit} className="text-gray-600">
             <X size={18} />
           </button>
         </div>
       );
     }
 
-    // merge ค่า default + dynamic per row
     const dyn = getConfirmDeleteProps?.(row) ?? {};
     const title = dyn.title ?? confirmDeleteTitle;
     const description = dyn.description ?? confirmDeleteDescription;
     const confirmText = dyn.confirmText ?? confirmDeleteText;
-    const confirmClassName = dyn.confirmClassName ?? confirmDeleteClassName;
+    const confirmClassName =
+      dyn.confirmClassName ?? confirmDeleteClassName;
 
     return (
       <div className="flex gap-2 justify-center">
         {onUpdate && (
-          <button onClick={() => startEdit(row)} className="text-blue-600" title="Edit">
+          <button onClick={() => startEdit(row)} className="text-blue-600">
             <Pencil size={18} />
           </button>
         )}
+
         {onHardDelete && (
           <ConfirmDialog
             trigger={
-              <button className="text-red-600" title="Hard delete">
+              <button className="text-red-600">
                 <Trash2 size={18} />
               </button>
             }
@@ -286,9 +295,14 @@ export function DataTable<T extends { id: string }, K extends keyof T & string>(
     );
   };
 
+  // -------------------------------------------------------------------
+  // 🟥 RENDER START
+  // -------------------------------------------------------------------
+
   return (
     <div className="rounded-md border min-h-[250px] flex flex-col">
-      {/* Header: Search + Add */}
+      
+      {/* Header */}
       <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between px-4 py-3">
         <input
           type="text"
@@ -296,10 +310,13 @@ export function DataTable<T extends { id: string }, K extends keyof T & string>(
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           className="border rounded px-3 py-1 text-sm w-full md:w-64"
-          aria-label="Search table"
         />
+
         {onCreateClick && (
-          <button onClick={onCreateClick} className="px-3 py-1 bg-blue-600 text-white rounded text-sm">
+          <button
+            onClick={onCreateClick}
+            className="px-3 py-1 bg-blue-600 text-white rounded text-sm"
+          >
             Add
           </button>
         )}
@@ -310,11 +327,15 @@ export function DataTable<T extends { id: string }, K extends keyof T & string>(
         <thead className="bg-gray-100">
           <tr>
             {columns.map((col) => (
-              <th key={String(col.key)} className="border px-4 py-2 text-left">
+              <th
+                key={String(col.key)}
+                className="border px-4 py-2 text-left"
+              >
                 <button
                   onClick={() => toggleSort(col.key, col.sortable)}
-                  className={`inline-flex items-center gap-1 ${col.sortable ? "hover:underline" : "cursor-default"}`}
-                  title={col.sortable ? `Sort by ${col.header}` : undefined}
+                  className={`inline-flex items-center gap-1 ${
+                    col.sortable ? "hover:underline" : "cursor-default"
+                  }`}
                 >
                   {col.header} {col.sortable && <SortIcon col={col.key} />}
                 </button>
@@ -323,19 +344,48 @@ export function DataTable<T extends { id: string }, K extends keyof T & string>(
             <th className="border px-4 py-2 text-center">Actions</th>
           </tr>
         </thead>
+
         <tbody>
-          {pageRows.length ? (
+          {/* 🟦 Skeleton rows */}
+          {isLoading ? (
+            Array.from({ length: loadingRows }).map((_, i) => (
+              <tr key={`sk-${i}`} className="animate-pulse">
+                {columns.map((col) => (
+                  <td className="border px-4 py-2" key={col.key}>
+                    <div className="h-4 bg-gray-200 rounded w-3/4" />
+                  </td>
+                ))}
+                <td className="border px-4 py-2 text-center">
+                  <div className="flex gap-2 justify-center">
+                    <div className="h-4 w-4 bg-gray-200 rounded" />
+                    <div className="h-4 w-4 bg-gray-200 rounded" />
+                  </div>
+                </td>
+              </tr>
+            ))
+          ) : pageRows.length ? (
             pageRows.map((row) => {
               const isEditing = editingRowId === row.id;
               return (
                 <tr key={row.id} className="hover:bg-gray-50">
                   {columns.map((col) => {
-                    const value = (isEditing ? (draft as T)[col.key] : (row as T)[col.key]) as T[K];
+                    const value = isEditing
+                      ? (draft as T)[col.key]
+                      : row[col.key];
+
                     return (
-                      <td key={`${row.id}-${String(col.key)}`} className={`border px-4 py-2 ${col.className ?? ""}`}>
+                      <td
+                        key={`${row.id}-${String(col.key)}`}
+                        className={`border px-4 py-2 ${col.className ?? ""}`}
+                      >
                         {isEditing
                           ? col.editor
-                            ? col.editor({ row, value, set: (v: T[K]) => setDraftField(col.key, v) })
+                            ? col.editor({
+                                row,
+                                value,
+                                set: (v: T[K]) =>
+                                  setDraftField(col.key, v),
+                              })
                             : defaultEditor(col.key)
                           : col.render
                           ? col.render(row)
@@ -344,7 +394,6 @@ export function DataTable<T extends { id: string }, K extends keyof T & string>(
                     );
                   })}
 
-                  {/* Actions */}
                   <td className="border px-4 py-2 text-center">
                     {(renderActions ?? defaultRenderActions)({
                       row,
@@ -360,7 +409,10 @@ export function DataTable<T extends { id: string }, K extends keyof T & string>(
             })
           ) : (
             <tr>
-              <td colSpan={columns.length + 1} className="text-center py-4 text-gray-500">
+              <td
+                colSpan={columns.length + 1}
+                className="text-center py-4 text-gray-500"
+              >
                 No results.
               </td>
             </tr>
@@ -368,10 +420,12 @@ export function DataTable<T extends { id: string }, K extends keyof T & string>(
         </tbody>
       </table>
 
-      {/* Footer: Pagination */}
+      {/* Footer */}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between px-4 py-3 border-t mt-auto">
         <div className="flex items-center gap-3">
-          <div className="text-sm text-gray-600">{total ? `${startIdx + 1}–${endIdx} of ${total}` : "0 of 0"}</div>
+          <div className="text-sm text-gray-600">
+            {total ? `${startIdx + 1}–${endIdx} of ${total}` : "0 of 0"}
+          </div>
           <div className="flex items-center gap-2">
             <label className="text-sm text-gray-600">Rows</label>
             <select
@@ -393,7 +447,6 @@ export function DataTable<T extends { id: string }, K extends keyof T & string>(
             className="p-1 rounded hover:bg-gray-100 disabled:opacity-40"
             onClick={() => setPage(1)}
             disabled={page <= 1}
-            title="First page"
           >
             <ChevronsLeft size={18} />
           </button>
@@ -401,7 +454,6 @@ export function DataTable<T extends { id: string }, K extends keyof T & string>(
             className="p-1 rounded hover:bg-gray-100 disabled:opacity-40"
             onClick={() => setPage((p) => Math.max(1, p - 1))}
             disabled={page <= 1}
-            title="Previous"
           >
             <ChevronLeft size={18} />
           </button>
@@ -412,7 +464,6 @@ export function DataTable<T extends { id: string }, K extends keyof T & string>(
             className="p-1 rounded hover:bg-gray-100 disabled:opacity-40"
             onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
             disabled={page >= totalPages}
-            title="Next"
           >
             <ChevronRight size={18} />
           </button>
@@ -420,7 +471,6 @@ export function DataTable<T extends { id: string }, K extends keyof T & string>(
             className="p-1 rounded hover:bg-gray-100 disabled:opacity-40"
             onClick={() => setPage(totalPages)}
             disabled={page >= totalPages}
-            title="Last page"
           >
             <ChevronsRight size={18} />
           </button>

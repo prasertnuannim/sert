@@ -17,7 +17,6 @@ export default function RegisterForm() {
   };
 
   const [state, formAction, isPending] = useActionState(registerUser, initialState);
-  console.log("state >>> ", state)
 
   useEffect(() => {
     const form = document.querySelector("form") as HTMLFormElement | null;

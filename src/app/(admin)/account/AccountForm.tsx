@@ -1,34 +1,52 @@
 "use client";
 
-import { useActionState, useEffect, useState } from "react";
+import { useActionState, useCallback, useEffect, useState } from "react";
 import { getUsersAction, updateUserAction, deleteUserAction, createUserAction as baseCreateUserAction } from "./actions";
 import { FullUser } from "@/types/account.type";
 import { CreateUserModal } from "@/components/form/CreateUserModal";
 import { DataTable, Column } from "@/components/form/DataTable";
 
-const roleToText = (r: unknown) => (typeof r === "string" ? r : (r as { name?: string })?.name ?? "");
+const roleToText = (role: FullUser["role"] | string | undefined) =>
+  typeof role === "string" ? role : role?.name ?? "";
+type UserColumnKey = "name" | "email" | "role";
 
 export default function AccountForm() {
   const [users, setUsers] = useState<FullUser[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isUsersLoading, setIsUsersLoading] = useState(true);
+
+  const fetchUsers = useCallback(async (): Promise<FullUser[]> => {
+    const result = await getUsersAction();
+    if (result && "data" in result) {
+      return result.data;
+    }
+    return [];
+  }, []);
+
+  const syncUsers = useCallback(async () => {
+    setIsUsersLoading(true);
+    try {
+      const data = await fetchUsers();
+      setUsers(data);
+      setIsModalOpen(false);
+    } finally {
+      setIsUsersLoading(false);
+    }
+  }, [fetchUsers]);
 
   const createUserAction = async (state: FullUser[], formData: FormData): Promise<FullUser[]> => {
     const result = await baseCreateUserAction(formData);
     if (result?.success) {
-      const updated = await getUsersAction();
-      return (updated || []) as FullUser[];
+      const updated = await fetchUsers();
+      return updated;
     }
     return state;
   };
-  const [state, formAction] = useActionState<FullUser[], FormData>(createUserAction, users);
+  const [state, formAction, isCreatePending] = useActionState<FullUser[], FormData>(createUserAction, users);
 
   useEffect(() => {
-    (async () => {
-      const data = await getUsersAction();
-      setUsers((data || []) as FullUser[]);
-      setIsModalOpen(false);
-    })();
-  }, []);
+    syncUsers();
+  }, [syncUsers]);
 
   useEffect(() => {
     if (state && state.length >= users.length) {
@@ -41,24 +59,20 @@ export default function AccountForm() {
     const upd = {
       ...values,
       role:
-        typeof values.role === "object"
-          ? (values.role as { name: string })?.name
-          : typeof values.role === "string"
-            ? values.role
-            : "",
+        typeof values.role === "object" && values.role
+          ? values.role.name
+          : "",
     };
     await updateUserAction(id, upd);
-    const updated = await getUsersAction();
-    setUsers((updated || []) as FullUser[]);
+    await syncUsers();
   };
 
   const handleHardDeleteUser = async (id: string) => {
     await deleteUserAction(id);
-    const updated = await getUsersAction();
-    setUsers((updated || []) as FullUser[]);
+    await syncUsers();
   };
 
-  const columns: Column<FullUser, keyof FullUser & string>[] = [
+  const columns: Column<FullUser, UserColumnKey>[] = [
     { key: "name", header: "Name", sortable: true },
     { key: "email", header: "Email", sortable: true },
     {
@@ -74,8 +88,14 @@ export default function AccountForm() {
           {roleToText(u.role)}
         </span>
       ),
-      editor: ({ value, set }) => (
-        <select value={roleToText(value)} onChange={(e) => set(e.target.value as string)} className="border px-2 py-1 rounded w-full text-sm">
+      editor: ({ row, value, set }) => (
+        <select
+          value={roleToText(value)}
+          onChange={(e) =>
+            set(e.target.value ? { id: row.role?.id ?? "", name: e.target.value } : null)
+          }
+          className="border px-2 py-1 rounded w-full text-sm"
+        >
           <option value="admin">admin</option>
           <option value="user">user</option>
         </select>
@@ -85,23 +105,24 @@ export default function AccountForm() {
 
   return (
     <div className="container mx-auto py-10">
-      <DataTable<FullUser, keyof FullUser & string>
+      <DataTable<FullUser, UserColumnKey>
         data={users}
         columns={columns}
         initialPageSize={10}
         initialSort={{ key: "name", dir: "asc" }}
         searchPlaceholder="Search name / email / role…"
+        isLoading={isUsersLoading || isCreatePending}
         onCreateClick={() => setIsModalOpen(true)}
         onUpdate={handleUpdateUser}
         onHardDelete={handleHardDeleteUser}
-        confirmDeleteTitle="ลบผู้ใช้นี้ถาวร?"
-        confirmDeleteDescription="การกระทำนี้ไม่สามารถย้อนกลับได้"
-        confirmDeleteText="ลบเลย"
+        confirmDeleteTitle="Delete this user permanently?"
+        confirmDeleteDescription="This action cannot be undone."
+        confirmDeleteText="Delete"
         confirmDeleteClassName="bg-red-600 text-white hover:bg-red-700"
         getConfirmDeleteProps={(row) => ({
-          title: `ลบ “${row.name ?? row.email ?? row.id}” ถาวร ?`,
-          description: "ข้อมูลจะถูกลบออกจากระบบอย่างถาวร",
-          confirmText: "ยืนยันการลบ",
+          title: `Permanently delete “${row.name ?? row.email ?? row.id}”?`,
+          description: "This record will be removed from the system forever.",
+          confirmText: "Confirm delete",
         })}
       />
 

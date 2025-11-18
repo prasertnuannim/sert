@@ -1,15 +1,19 @@
 "use server";
 
-import { registerSchema } from "@/lib/validators/auth";
-import { AuthFormState } from "@/types/auth.type";
-import { prisma } from "@/server/db/prisma";
-import { hash } from "bcryptjs";
+import { RegisterDTO, RegisterResponseDto } from "@/server/dto/register.dto";
+import { registerService } from "@/server/services/register.service";
 import { AppError } from "@/server/security/AppError";
 
+const resolveErrorMessage = (error: unknown) => {
+  if (error instanceof AppError) return error.message;
+  if (error instanceof Error) return error.message;
+  return "Unexpected error occurred.";
+};
+
 export async function registerUser(
-  _: unknown,
+  _prevState: unknown,
   formData: FormData
-): Promise<AuthFormState> {
+): Promise<RegisterResponseDto> {
   const raw = {
     name: String(formData.get("name") ?? ""),
     email: String(formData.get("email") ?? ""),
@@ -17,65 +21,27 @@ export async function registerUser(
     confirmPassword: String(formData.get("confirmPassword") ?? ""),
   };
 
-  try {
-    // ✅ Validate ด้วย Zod
-    const result = registerSchema.safeParse(raw);
-    if (!result.success) {
-      const errors: AuthFormState["errors"] = {};
-      result.error.errors.forEach((err) => {
-        const field = err.path[0] as keyof typeof errors;
-        errors[field] = err.message;
-      });
-
-      return {
-        errors,
-        values: {
-          name: raw.name,
-          email: raw.email,
-          password: "",
-          confirmPassword: "",
-        },
-      };
-    }
-
-    // ✅ ตรวจ email ซ้ำ
-    const existing = await prisma.user.findUnique({
-      where: { email: raw.email },
+  const parsed = RegisterDTO.Register.safeParse(raw);
+  if (!parsed.success) {
+    const errors: Record<string, string> = {};
+    parsed.error.errors.forEach((err) => {
+      const field = err.path[0] as string;
+      errors[field] = err.message;
     });
-    if (existing) throw new AppError("EMAIL_EXISTS", "Email already registered.");
-
-    // ✅ สร้าง user
-    await prisma.user.create({
-      data: {
-        name: raw.name,
-        email: raw.email,
-        password: await hash(raw.password, 10),
-        role: { connect: { name: "user" } },
-      },
-    });
-
-    return { success: true };
-  } catch (err) {
-    if (err instanceof AppError) {
-      return {
-        errors: { general: err.message },
-        values: {
-          name: raw.name,
-          email: raw.email,
-          password: "",
-          confirmPassword: "",
-        },
-      };
-    }
 
     return {
-      errors: { general: "Unexpected error occurred. Please try again." },
-      values: {
-        name: raw.name,
-        email: raw.email,
-        password: "",
-        confirmPassword: "",
-      },
+      errors,
+      values: { name: raw.name, email: raw.email },
+    };
+  }
+
+  try {
+    await registerService.register(parsed.data);
+    return { success: true };
+  } catch (error: unknown) {
+    return {
+      errors: { general: resolveErrorMessage(error) },
+      values: { name: raw.name, email: raw.email },
     };
   }
 }

@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation";
-import AccountForm from "./AccountForm";
+import AccountForm from "./accountForm";
 import { SessionService } from "@/server/services/auth/SessionService";
 
 export const dynamic = "force-dynamic";

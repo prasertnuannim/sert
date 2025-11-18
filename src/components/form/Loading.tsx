@@ -1,4 +1,3 @@
-// src/components/Loading.tsx
 "use client";
 
 import { motion } from "framer-motion";
@@ -12,7 +11,14 @@ export default function Loading({ message }: LoadingProps) {
   const colors = ["#1e40af", "#9333ea", "#0ea5e9", "#db2777", "#1e40af"];
 
   return (
-    <div className="flex flex-col justify-center items-center min-h-screen gap-4">
+    <div
+      className="
+        fixed inset-0 z-50 
+        flex flex-col justify-center items-center gap-4
+        bg-black/30 backdrop-blur-md
+      "
+    >
+      {/* Bouncing dots */}
       <div className="flex space-x-2">
         {[0, 0.2, 0.4].map((delay, index) => (
           <motion.span
@@ -33,6 +39,8 @@ export default function Loading({ message }: LoadingProps) {
           />
         ))}
       </div>
+
+      {/* Text animation */}
       <div className="flex space-x-1 text-2xl font-bold">
         {text.split("").map((char, i) => (
           <motion.span
