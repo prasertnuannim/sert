@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { withAuthAction } from "@/server/security/SafeAction";
 import { UserDTO } from "@/server/dto/user.dto";
-import { userService } from "@/server/services/user.service";
+import { userService } from "@/server/services/UserService";
 import { userMapper } from "@/server/mappers/user.mapper";
 import type { AccountActionResult, FullUser } from "@/types/account.type";
 import { AccessRole } from "@/server/services/auth/AuthService";

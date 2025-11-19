@@ -1,7 +1,7 @@
 "use server";
 
 import { RegisterDTO, RegisterResponseDto } from "@/server/dto/register.dto";
-import { registerService } from "@/server/services/register.service";
+import { registerService } from "@/server/services/RegisterService";
 import { AppError } from "@/server/security/AppError";
 
 const resolveErrorMessage = (error: unknown) => {
