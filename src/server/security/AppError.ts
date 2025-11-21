@@ -1,10 +1,22 @@
-export class AppError extends Error {
-  public status: number;
-  public code: string;
+export type AppError = {
+  name: "AppError";
+  code: string;
+  message: string;
+  status: number;
+};
 
-  constructor(code: string, message: string, status = 400) {
-    super(message);
-    this.code = code;
-    this.status = status;
-  }
-}
+export const createAppError = (
+  code: string,
+  message: string,
+  status = 400
+): AppError => ({
+  name: "AppError",
+  code,
+  message,
+  status,
+});
+
+export const isAppError = (err: unknown): err is AppError =>
+  typeof err === "object" &&
+  err !== null &&
+  (err as { name?: unknown }).name === "AppError";
