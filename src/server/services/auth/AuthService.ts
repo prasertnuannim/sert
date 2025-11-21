@@ -14,8 +14,8 @@ import type {
   AuthSignInCallbackParams,
   LoginCredentialsInput,
 } from "@/types/auth.type";
-import { AuthUserService } from "@/server/services/auth/AuthUserService";
-import { resolveSessionMaxAgeSeconds } from "@/server/services/auth/SessionService";
+import { authUserService } from "@/server/services/auth/authUserService";
+import { resolveSessionMaxAgeSeconds } from "@/server/services/auth/sessionService";
 
 declare module "next-auth" {
   interface Session {
@@ -45,142 +45,140 @@ export {
   ROLE_REDIRECT_MAP,
   resolveRoleRedirectPath,
   normalizeAccessRole,
-} from "@/lib/auth/access-role";
+} from "@/lib/auth/accessRole";
 
-export class AuthService {
-  private adapter = PrismaAdapter(prisma);
-  private authUserService = new AuthUserService();
-  private readonly enableWebAuthn = ["1", "true", "yes"].includes(
-    String(process.env.NEXT_PUBLIC_ENABLE_PASSKEY ?? "").toLowerCase(),
+const adapter = PrismaAdapter(prisma);
+const enableWebAuthn = ["1", "true", "yes"].includes(
+  String(process.env.NEXT_PUBLIC_ENABLE_PASSKEY ?? "").toLowerCase(),
+);
+
+const normalizeCredentials = (
+  credentials?: Partial<Record<"email" | "password", unknown>>,
+): LoginCredentialsInput | undefined => {
+  if (!credentials) return undefined;
+  return {
+    email: typeof credentials.email === "string" ? credentials.email : undefined,
+    password: typeof credentials.password === "string" ? credentials.password : undefined,
+  };
+};
+
+const authorizeWithCredentials = async (
+  credentials?: Partial<Record<"email" | "password", unknown>>,
+): Promise<User | null> => {
+  const normalized = normalizeCredentials(credentials);
+  const email = normalized?.email;
+  const password = normalized?.password;
+  if (!email || !password) return null;
+
+  const user = await prisma.user.findFirst({
+    where: { email },
+    include: { role: true },
+  });
+  if (!user || !user.password) return null;
+
+  const ok = await bcrypt.compare(password, String(user.password));
+  if (!ok) return null;
+
+  return {
+    id: user.id,
+    name: user.name,
+    email: user.email,
+    role: user.role?.name ?? user.roleId ?? null,
+    image: user.image,
+  };
+};
+
+const providers = (): NextAuthConfig["providers"] => {
+  const providerList: NextAuthConfig["providers"] = [
+    GitHub,
+    Google({
+      clientId: process.env.GOOGLE_CLIENT_ID!,
+      clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
+    }),
+    Credentials({
+      name: "Credentials",
+      credentials: {
+        email: { label: "Email", type: "text" },
+        password: { label: "Password", type: "password" },
+      },
+      authorize: authorizeWithCredentials,
+    }),
+  ];
+
+  if (enableWebAuthn) providerList.splice(2, 0, Passkey);
+
+  return providerList;
+};
+
+const handleSignIn: AuthCallbacks["signIn"] = async ({ user, account }: AuthSignInCallbackParams) => {
+  if (!user.email || !account?.provider) return false;
+  if (account.provider === "credentials") return true;
+  await authUserService.findOrCreate(
+    { id: user.id, email: user.email, name: user.name, image: user.image },
+    account,
   );
 
-  public getOptions(): NextAuthConfig {
-    return {
-      secret: process.env.NEXTAUTH_SECRET,
-      adapter: this.adapter,
-      session: {
-        strategy: "jwt",
-        maxAge: resolveSessionMaxAgeSeconds(process.env.SESSION_MAX_AGE),
-      },
-      experimental: this.enableWebAuthn ? { enableWebAuthn: true } : undefined,
-      pages: { signIn: "/login" },
-      providers: this.providers(),
-      callbacks: this.callbacks(),
-    };
-  }
+  return true;
+};
 
-  private providers(): NextAuthConfig["providers"] {
-    const providers: NextAuthConfig["providers"] = [
-      GitHub,
-      Google({
-        clientId: process.env.GOOGLE_CLIENT_ID!,
-        clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
-      }),
-      Credentials({
-        name: "Credentials",
-        credentials: {
-          email: { label: "Email", type: "text" },
-          password: { label: "Password", type: "password" },
-        },
-        authorize: this.authorizeWithCredentials.bind(this),
-      }),
-    ];
+const handleJWT: AuthCallbacks["jwt"] = async ({
+  token,
+  user,
+  account,
+}: AuthJwtCallbackParams): Promise<JWT> => {
+  if (user) token.email = user.email ?? token.email;
 
-    if (this.enableWebAuthn) providers.splice(2, 0, Passkey);
-
-    return providers;
-  }
-
-  private async authorizeWithCredentials(
-    credentials?: Partial<Record<"email" | "password", unknown>>,
-  ): Promise<User | null> {
-    const normalized = this.normalizeCredentials(credentials);
-    const email = normalized?.email;
-    const password = normalized?.password;
-    if (!email || !password) return null;
-
-    const user = await prisma.user.findFirst({
-      where: { email },
+  if (account?.provider && ["github", "google", "passkey"].includes(account.provider)) {
+    const dbUser = await prisma.user.findUnique({
+      where: { email: user?.email ?? "" },
       include: { role: true },
     });
-    if (!user || !user.password) return null;
-
-    const ok = await bcrypt.compare(password, String(user.password));
-    if (!ok) return null;
-
-    return {
-      id: user.id,
-      name: user.name,
-      email: user.email,
-      role: user.role?.name ?? user.roleId ?? null,
-      image: user.image,
-    };
-  }
-
-  private normalizeCredentials(
-    credentials?: Partial<Record<"email" | "password", unknown>>,
-  ): LoginCredentialsInput | undefined {
-    if (!credentials) return undefined;
-    return {
-      email: typeof credentials.email === "string" ? credentials.email : undefined,
-      password: typeof credentials.password === "string" ? credentials.password : undefined,
-    };
-  }
-
-  private callbacks(): AuthCallbacks {
-    return {
-      signIn: this.handleSignIn.bind(this),
-      jwt: this.handleJWT.bind(this),
-      session: this.handleSession.bind(this),
-      redirect: async () => "/",
-    };
-  }
-
-
-  private async handleSignIn({ user, account }: AuthSignInCallbackParams) {
-    if (!user.email || !account?.provider) return false;
-    if (account.provider === "credentials") return true;
-    await this.authUserService.findOrCreate(
-      { id: user.id, email: user.email, name: user.name, image: user.image },
-      account,
-    );
-
-    return true;
-  }
-
-  private async handleJWT({ token, user, account }: AuthJwtCallbackParams): Promise<JWT> {
-    if (user) token.email = user.email ?? token.email;
-
-    if (account?.provider && ["github", "google", "passkey"].includes(account.provider)) {
-      const dbUser = await prisma.user.findUnique({
-        where: { email: user?.email ?? "" },
-        include: { role: true },
-      });
-      if (dbUser) {
-        token.id = dbUser.id;
-        token.role = dbUser.role?.name ?? dbUser.roleId ?? null;
-        token.picture = dbUser.image ?? token.picture ?? null;
-      }
+    if (dbUser) {
+      token.id = dbUser.id;
+      token.role = dbUser.role?.name ?? dbUser.roleId ?? null;
+      token.picture = dbUser.image ?? token.picture ?? null;
     }
-
-    if (account?.provider === "credentials" && user) {
-      token.id = user.id;
-      token.role = user.role ?? null;
-      token.picture = user.image ?? null;
-    }
-
-    return token;
   }
 
-  private async handleSession({ session, token }: AuthSessionCallbackParams) {
-    if (session.user) {
-      session.user.id = token.id as string;
-      session.user.role = token.role as string;
-      session.user.image = (token.picture as string) ?? session.user.image;
-    }
-    return session;
+  if (account?.provider === "credentials" && user) {
+    token.id = user.id;
+    token.role = user.role ?? null;
+    token.picture = user.image ?? null;
   }
-}
 
-const service = new AuthService();
-export const { handlers, auth, signIn, signOut } = NextAuth(() => service.getOptions());
+  return token;
+};
+
+const handleSession: AuthCallbacks["session"] = async ({
+  session,
+  token,
+}: AuthSessionCallbackParams) => {
+  if (session.user) {
+    session.user.id = token.id as string;
+    session.user.role = token.role as string;
+    session.user.image = (token.picture as string) ?? session.user.image;
+  }
+  return session;
+};
+
+const callbacks = (): AuthCallbacks => ({
+  signIn: handleSignIn,
+  jwt: handleJWT,
+  session: handleSession,
+  redirect: async () => "/",
+});
+
+const getAuthOptions = (): NextAuthConfig => ({
+  secret: process.env.NEXTAUTH_SECRET,
+  adapter,
+  session: {
+    strategy: "jwt",
+    maxAge: resolveSessionMaxAgeSeconds(process.env.SESSION_MAX_AGE),
+  },
+  experimental: enableWebAuthn ? { enableWebAuthn: true } : undefined,
+  pages: { signIn: "/login" },
+  providers: providers(),
+  callbacks: callbacks(),
+});
+
+export const { handlers, auth, signIn, signOut } = NextAuth(getAuthOptions);

@@ -1,11 +1,12 @@
 "use server";
 
-import { RegisterDTO, RegisterResponseDto } from "@/server/dto/register.dto";
-import { registerService } from "@/server/services/RegisterService";
-import { AppError } from "@/server/security/AppError";
+import { RegisterDTO } from "@/server/dto/register.dto";
+import { registerService } from "@/server/services/registerService";
+import { isAppError } from "@/server/security/appError";
+import { AuthFormState } from "@/types/auth.type";
 
 const resolveErrorMessage = (error: unknown) => {
-  if (error instanceof AppError) return error.message;
+  if (isAppError(error)) return error.message;
   if (error instanceof Error) return error.message;
   return "Unexpected error occurred.";
 };
@@ -13,7 +14,7 @@ const resolveErrorMessage = (error: unknown) => {
 export async function registerUser(
   _prevState: unknown,
   formData: FormData
-): Promise<RegisterResponseDto> {
+): Promise<AuthFormState> {
   const raw = {
     name: String(formData.get("name") ?? ""),
     email: String(formData.get("email") ?? ""),
@@ -29,19 +30,16 @@ export async function registerUser(
       errors[field] = err.message;
     });
 
-    return {
-      errors,
-      values: { name: raw.name, email: raw.email },
-    };
+    return { errors, values: raw };
   }
 
   try {
     await registerService.register(parsed.data);
-    return { success: true };
+    return { success: true, values: raw };
   } catch (error: unknown) {
     return {
       errors: { general: resolveErrorMessage(error) },
-      values: { name: raw.name, email: raw.email },
+      values: raw,
     };
   }
 }

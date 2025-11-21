@@ -1,28 +1,22 @@
-export class RateLimiter {
-  private store: Record<string, number[]> = {};
+export type RateLimiter = {
+  check: (key: string) => Promise<void>;
+};
 
-  constructor(
-    private limit: number,
-    private windowSec: number
-  ) {}
+export const createRateLimiter = (
+  limit: number,
+  windowSec: number
+): RateLimiter => {
+  const store: Record<string, number[]> = {};
 
-  async check(key: string) {
+  const check = async (key: string) => {
     const now = Date.now();
-
-    // สร้าง key ใหม่ถ้ายังไม่มี
-    if (!this.store[key]) this.store[key] = [];
-
-    // เก็บเฉพาะ timestamp ที่ยังอยู่ใน window
-    this.store[key] = this.store[key].filter(
-      (t) => now - t < this.windowSec * 1000
-    );
-
-    // ถ้า request เกิน limit → block
-    if (this.store[key].length >= this.limit) {
+    if (!store[key]) store[key] = [];
+    store[key] = store[key].filter((t) => now - t < windowSec * 1000);
+    if (store[key].length >= limit) {
       throw new Error("Too many requests");
     }
+    store[key].push(now);
+  };
 
-    // บันทึก request ใหม่
-    this.store[key].push(now);
-  }
-}
+  return { check };
+};

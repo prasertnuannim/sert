@@ -1,7 +1,7 @@
-import { GoogleSignIn } from "@/components/auth/GoogleSignIn";
-import { GithubSignIn } from "@/components/auth/GithubSignIn";
+import { GoogleSignIn } from "@/components/auth/googleSignIn";
+import { GithubSignIn } from "@/components/auth/githubSignIn";
 import LoginForm from "./loginForm";
-import PasskeySignIn from "@/components/auth/PasskeySignIn";
+import PasskeySignIn from "@/components/auth/passkeySignIn";
 
 export default function LoginPage() {
   return (

@@ -1,7 +1,7 @@
-import ColorMotionInChar from "@/components/motion/ColorMotionInChar";
-import { TooltipButton } from "@/components/ui/tooltipButton";
-import { signOut } from "@/server/services/auth/AuthService";
-import { getServerAuthSession } from "@/server/services/auth/SessionService";
+import ColorMotionInChar from "@/components/motion/colorMotionInChar";
+import { TooltipButton } from "@/components/ui/tooltip-button";
+import { signOut } from "@/server/services/auth/authService";
+import { getServerAuthSession } from "@/server/services/auth/sessionService";
 import React from "react";
 import { FaSignOutAlt } from "react-icons/fa";
 

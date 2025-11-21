@@ -1,6 +1,6 @@
 "use server";
 
-import { resolveSessionMaxAgeSeconds, SessionService } from "@/server/services/auth/SessionService";
+import { resolveSessionMaxAgeSeconds, SessionService } from "@/server/services/auth/sessionService";
 
 import { revalidatePath } from "next/cache";
 

@@ -1,8 +1,9 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { getToken } from "next-auth/jwt";
-import { AccessRole, normalizeAccessRole, resolveRoleRedirectPath } from "@/lib/auth/access-role";
-import { resolveAuthRedirect } from "@/server/services/auth/RedirectService";
+import { AccessRole, normalizeAccessRole, resolveRoleRedirectPath } from "@/lib/auth/accessRole";
+import { resolveAuthRedirect } from "@/server/services/auth/redirectService";
+
 
 const ACCESS_RULES: Record<string, AccessRole[]> = {
   "/admin": [AccessRole.Admin],

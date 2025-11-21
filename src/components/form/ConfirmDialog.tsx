@@ -13,13 +13,13 @@ import {
 } from "@/components/ui/alert-dialog";
 
 type ConfirmDialogProps = {
-  trigger: React.ReactNode;              // ปุ่มหรือตัวเรียก
-  title?: string;                        // หัวข้อ
-  description?: string;                  // คำอธิบาย
-  confirmText?: string;                  // ปุ่มยืนยัน
-  cancelText?: string;                   // ปุ่มยกเลิก
-  confirmClassName?: string;             // ใช้เปลี่ยนสีปุ่ม
-  onConfirm: () => void | Promise<void>; // callback เมื่อกดยืนยัน
+  trigger: React.ReactNode;
+  title?: string; 
+  description?: string;
+  confirmText?: string;
+  cancelText?: string;
+  confirmClassName?: string;
+  onConfirm: () => void | Promise<void>;
 };
 
 export function ConfirmDialog({

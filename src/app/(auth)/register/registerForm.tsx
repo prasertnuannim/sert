@@ -4,9 +4,9 @@ import { useActionState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { registerUser } from "./action";
 import { AuthFormState } from "@/types/auth.type";
-import FormInput from "@/components/form/FormInput";
-import { SubmitButton } from "@/components/form/SubmitButton";
-import FormAlert from "@/components/form/FormAlert";
+import FormInput from "@/components/form/formInput";
+import { SubmitButton } from "@/components/form/submitButton";
+import FormAlert from "@/components/form/formAlert";
 
 export default function RegisterForm() {
   const router = useRouter();
@@ -17,6 +17,8 @@ export default function RegisterForm() {
   };
 
   const [state, formAction, isPending] = useActionState(registerUser, initialState);
+
+  const values = state.values ?? {};
 
   useEffect(() => {
     const form = document.querySelector("form") as HTMLFormElement | null;
@@ -34,7 +36,7 @@ export default function RegisterForm() {
         type="text"
         label="Username"
         placeholder="Enter your username"
-        defaultValue={state.values?.name}
+        defaultValue={values.name ?? ""}
         error={state.errors?.name}
       />
 
@@ -43,7 +45,7 @@ export default function RegisterForm() {
         type="email"
         label="Email"
         placeholder="Enter your email"
-        defaultValue={state.values?.email}
+        defaultValue={values.email ?? ""}
         error={state.errors?.email}
       />
 
@@ -52,7 +54,7 @@ export default function RegisterForm() {
         type="password"
         label="Password"
         placeholder="Enter your password"
-        defaultValue={state.values?.password}
+        defaultValue={values.password ?? ""}
         error={state.errors?.password}
       />
 
@@ -61,7 +63,7 @@ export default function RegisterForm() {
         type="password"
         label="Confirm Password"
         placeholder="Confirm your password"
-        defaultValue={state.values?.confirmPassword}
+        defaultValue={values.confirmPassword ?? ""}
         error={state.errors?.confirmPassword}
       />
 

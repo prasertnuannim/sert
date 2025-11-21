@@ -1,6 +1,6 @@
 
 import { Button } from "@/components/ui/button";
-import { signIn } from "@/server/services/auth/AuthService";
+import { signIn } from "@/server/services/auth/authService";
 import { FaGithub } from "react-icons/fa";
 
 export const GithubSignIn = () => {

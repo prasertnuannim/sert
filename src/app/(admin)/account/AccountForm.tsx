@@ -3,8 +3,8 @@
 import { useActionState, useCallback, useEffect, useState } from "react";
 import { getUsersAction, updateUserAction, deleteUserAction, createUserAction as baseCreateUserAction } from "./actions";
 import { FullUser } from "@/types/account.type";
-import { CreateUserModal } from "@/components/form/CreateUserModal";
-import { DataTable, Column } from "@/components/form/DataTable";
+import { CreateUserModal } from "@/components/form/createUserModal";
+import { DataTable, Column } from "@/components/form/dataTable";
 
 const roleToText = (role: FullUser["role"] | string | undefined) =>
   typeof role === "string" ? role : role?.name ?? "";

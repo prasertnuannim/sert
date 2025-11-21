@@ -1,7 +1,7 @@
 
-import { resolveSessionMaxAgeSeconds, SessionService } from "@/server/services/auth/SessionService";
+import { resolveSessionMaxAgeSeconds, SessionService } from "@/server/services/auth/sessionService";
 import { redirect } from "next/navigation";
-import { AuthSettingsForm } from "./AuthSettingsForm";
+import { AuthSettingsForm } from "./authSettingsForm";
 
 
 export const dynamic = "force-dynamic"; // SSR ทุกครั้ง

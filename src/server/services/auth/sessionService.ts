@@ -1,48 +1,53 @@
 import "server-only";
 import type { Session } from "next-auth";
 import type { NextRequest } from "next/server";
-import { auth } from "./AuthService";
+import { auth } from "./authService";
 
 type AuthWithRequest = (req: NextRequest) => Promise<Session | null>;
 
-export class SessionService {
-  static async get(request?: NextRequest): Promise<Session | null> {
-    try {
-      if (request) {
-        const runAuth = auth as unknown as AuthWithRequest;
-        return await runAuth(request);
-      }
-      return await auth();
-    } catch (err) {
-      console.error("Error getting session:", err);
-      return null;
+const getSession = async (request?: NextRequest): Promise<Session | null> => {
+  try {
+    if (request) {
+      const runAuth = auth as unknown as AuthWithRequest;
+      return await runAuth(request);
     }
+    return await auth();
+  } catch (err) {
+    console.error("Error getting session:", err);
+    return null;
   }
+};
 
-  static async user(request?: NextRequest) {
-    const session = await this.get(request);
-    return session?.user ?? null;
-  }
+const getUser = async (request?: NextRequest) => {
+  const session = await getSession(request);
+  return session?.user ?? null;
+};
 
-  static async isAuthenticated(request?: NextRequest) {
-    const user = await this.user(request);
-    return !!user?.id;
-  }
+const isAuthenticated = async (request?: NextRequest) => {
+  const user = await getUser(request);
+  return !!user?.id;
+};
 
-  static async hasRole(role: string, request?: NextRequest) {
-    const user = await this.user(request);
-    return user?.role === role;
-  }
-}
+const hasRole = async (role: string, request?: NextRequest) => {
+  const user = await getUser(request);
+  return user?.role === role;
+};
+
+export const SessionService = {
+  get: getSession,
+  user: getUser,
+  isAuthenticated,
+  hasRole,
+};
 
 /** ✅ ใช้ใน Server Component หรือ API Route */
 export async function getServerAuthSession(request?: NextRequest): Promise<Session | null> {
-  return SessionService.get(request);
+  return getSession(request);
 }
 
 /** ✅ ดึงเฉพาะ user */
 export async function getSessionUser(request?: NextRequest) {
-  return SessionService.user(request);
+  return getUser(request);
 }
 
 /** ✅ บังคับให้ต้องมี session (เช่นใน Protected API) */

@@ -4,10 +4,10 @@ import { useActionState } from "react";
 import { loginUser } from "./action";
 import { redirect } from "next/navigation";
 import Link from "next/link";
-import { SubmitButton } from "@/components/form/SubmitButton";
-import FormInput from "@/components/form/FormInput";
+import { SubmitButton } from "@/components/form/submitButton";
+import FormInput from "@/components/form/formInput";
 import { LoginFormState } from "@/types/auth.type";
-import FormAlert from "@/components/form/FormAlert";
+import FormAlert from "@/components/form/formAlert";
 
 export default function LoginForm() {
   const initialState: LoginFormState = {

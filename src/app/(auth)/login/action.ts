@@ -2,12 +2,12 @@
 
 import { loginSchema } from "@/lib/validators/auth";
 import { LoginFormState } from "@/types/auth.type";
-import { AppError } from "@/server/security/AppError";
-import { RateLimiter } from "@/server/security/RateLimiter";
-import { signIn } from "@/server/services/auth/AuthService";
-import { verifyService } from "@/server/services/auth/VerifyService";
+import { signIn } from "@/server/services/auth/authService";
+import { verifyService } from "@/server/services/auth/verifyService";
+import { createAppError, isAppError } from "@/server/security/appError";
+import { createRateLimiter } from "@/server/security/rateLimiter";
 
-const loginRateLimiter = new RateLimiter(5, 60);
+const loginRateLimiter = createRateLimiter(5, 60);
 
 export async function loginUser(
   _: unknown,
@@ -41,14 +41,14 @@ export async function loginUser(
     });
 
     if (!res || res.error) {
-      throw new AppError(
+      throw createAppError(
         "SIGNIN_FAILED",
         "Something went wrong. Please try again."
       );
     }
     return { success: true };
   } catch (err) {
-    if (err instanceof AppError) {
+    if (isAppError(err)) {
       return {
         errors: { general: err.message },
         values: { email: "" },

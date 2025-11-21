@@ -3,8 +3,8 @@
 import { useEffect, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
-import Loading from "@/components/form/Loading";
-import { resolveRoleRedirectPath } from "@/lib/auth/access-role";
+import Loading from "@/components/form/loading";
+import { resolveRoleRedirectPath } from "@/lib/auth/accessRole";
 
 const REDIRECT_DELAY_MS = 800;
 

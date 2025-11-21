@@ -1,4 +1,4 @@
-import Loading from "@/components/form/Loading";
+import Loading from "@/components/form/loading";
 
 
 export default function GlobalLoading() {

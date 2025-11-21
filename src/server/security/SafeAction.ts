@@ -1,4 +1,4 @@
-import { auth } from "@/server/services/auth/AuthService";
+import { auth } from "@/server/services/auth/authService";
 
 type WithAuthOptions = {
   roles?: string[];

@@ -12,10 +12,10 @@ export type AuthFormState = {
     general?: string;
   };
   values?: {
-    name: string;
-    email: string;
-    password: string;
-    confirmPassword: string;
+    name?: string | null;
+    email?: string | null;
+    password?: string | null;
+    confirmPassword?: string | null;
   };
   success?: boolean;
 };

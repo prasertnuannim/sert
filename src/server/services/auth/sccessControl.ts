@@ -1,4 +1,4 @@
-import { AccessRole } from "@/lib/auth/access-role";
+import { AccessRole } from "@/lib/auth/accessRole";
 
 export const ACCESS_RULES: Record<string, AccessRole[]> = {
   "/admin": [AccessRole.Admin],
