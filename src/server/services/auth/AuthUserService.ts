@@ -1,6 +1,8 @@
-import type { Account, User as NextAuthUser } from "next-auth";
+import type { Account, User as NextAuthUser, User } from "next-auth";
 import type { User as PrismaUser, PrismaClient } from "@prisma/client";
 import { prisma } from "@/server/db/prisma";
+import { LoginCredentialsInput } from "@/types/auth.type";
+import bcrypt from "bcryptjs";
 
 type AuthUser = Pick<NextAuthUser, "email" | "name" | "image"> & { id?: string | null };
 
@@ -64,6 +66,42 @@ const createUserWithOAuth =
       },
     });
 
+const normalizeCredentials = (
+  credentials?: Partial<Record<"email" | "password", unknown>>,
+): LoginCredentialsInput | undefined => {
+  if (!credentials) return undefined;
+  return {
+    email: typeof credentials.email === "string" ? credentials.email : undefined,
+    password: typeof credentials.password === "string" ? credentials.password : undefined,
+  };
+};
+
+const authorizeWithCredentials = async (
+  credentials?: Partial<Record<"email" | "password", unknown>>,
+): Promise<User | null> => {
+  const normalized = normalizeCredentials(credentials);
+  const email = normalized?.email;
+  const password = normalized?.password;
+  if (!email || !password) return null;
+
+  const user = await prisma.user.findFirst({
+    where: { email },
+    include: { role: true },
+  });
+  if (!user || !user.password) return null;
+
+  const ok = await bcrypt.compare(password, String(user.password));
+  if (!ok) return null;
+
+  return {
+    id: user.id,
+    name: user.name,
+    email: user.email,
+    role: user.role?.name ?? user.roleId ?? null,
+    image: user.image,
+  };
+};
+
 export const createAuthUserService = (db: PrismaClient = prisma) => {
   const findByEmail = findUserByEmail(db);
   const updateImage = updateUserImageIfNeeded(db);
@@ -90,3 +128,4 @@ export const createAuthUserService = (db: PrismaClient = prisma) => {
 };
 
 export const authUserService = createAuthUserService();
+export const authorizeWithCredentialsService = authorizeWithCredentials;
